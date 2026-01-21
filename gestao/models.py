@@ -17,12 +17,12 @@ class Fornecedor(models.Model):
 
 class Produto(models.Model):
     nome = models.CharField(max_length=200)
-    categoria = models.ForeignKey(Categoria, on_delete=models.CASCADE) # RF10: Categoria Obrigatória
-    marca = models.CharField(max_length=100) # Deixamos obrigatório para evitar confusão
-    preco_custo = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    preco_venda = models.DecimalField(max_digits=10, decimal_places=2)
-    stock_actual = models.IntegerField(default=0)
-    stock_minimo = models.IntegerField(default=5)
+    categoria = models.ForeignKey(Categoria, on_delete=models.CASCADE, verbose_name="Categoria")
+    marca = models.CharField(max_length=100, verbose_name="Marca")
+    preco_custo = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Custo Médio (Kz)")
+    preco_venda = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Preço de Venda (Kz)")
+    stock_actual = models.IntegerField(default=0, verbose_name="Stock Actual")
+    stock_minimo = models.IntegerField(default=5, verbose_name="Stock Mínimo")
     
     def __str__(self): return f"{self.nome} - {self.marca}"
 
@@ -33,9 +33,24 @@ class Produto(models.Model):
             return lucro, percentagem
         return 0, 0
 
+    def valor_total_stock(self):
+        return self.stock_actual * self.preco_custo
+
+    # O "POLÍCIA" DO ADMIN: Esta função mostra o erro vermelho no ecrã
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        if self.preco_venda < self.preco_custo:
+            raise ValidationError({
+                'preco_venda': f"O preço de venda ({self.preco_venda}) não pode ser inferior ao custo médio ({self.preco_custo})!"
+            })
+
+    # GARANTE A GRAVAÇÃO SEGURA
+    def save(self, *args, **kwargs):
+        self.full_clean() # Força a execução do 'clean' antes de gravar
+        super().save(*args, **kwargs)
+
     class Meta:
         verbose_name_plural = "3. Produtos"
-        # REGRA DE OURO: Não permite repetir o mesmo Nome + Marca
         unique_together = ('nome', 'marca')
 
 class Compra(models.Model):
