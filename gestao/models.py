@@ -84,6 +84,8 @@ class ItemVenda(models.Model):
     produto = models.ForeignKey(Produto, on_delete=models.CASCADE)
     quantidade = models.IntegerField()
     preco_unitario = models.DecimalField(max_digits=10, decimal_places=2)
+    def total_item(self):
+        return self.quantidade * self.preco_unitario
     
     def clean(self):
         if self.quantidade > self.produto.stock_actual:

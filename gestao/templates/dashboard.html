@@ -1,0 +1,111 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="pt-3 pb-2 mb-4 border-bottom d-flex justify-content-between align-items-center">
+    <h1 class="fw-bold" style="color: #1d1d1f;">Resumo Financeiro ✨</h1>
+    <span class="badge bg-white text-dark border p-2 rounded-pill shadow-sm">
+        📅 {% now "d \d\e F, Y" %}
+    </span>
+</div>
+
+<!-- BLOCO 1: CARTÕES FINANCEIROS -->
+<div class="row g-4">
+    <div class="col-md-4">
+        <div class="card card-apple">
+            <small class="text-muted fw-bold">TOTAL ENTRADAS</small>
+            <h3 class="fw-bold mt-2 text-success">{{ entradas|floatformat:2 }} Kz</h3>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card card-apple">
+            <small class="text-muted fw-bold">TOTAL SAÍDAS</small>
+            <h3 class="fw-bold mt-2 text-danger">{{ saidas|floatformat:2 }} Kz</h3>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card card-apple" style="border-left: 5px solid {% if lucro >= 0 %}#28a745{% else %}#dc3545{% endif %};">
+            <small class="text-muted fw-bold">RESULTADO LÍQUIDO</small>
+            <h3 class="fw-bold mt-2 {{ status_cor }}">{{ lucro|floatformat:2 }} Kz</h3>
+        </div>
+    </div>
+</div>
+
+<!-- BLOCO 2: TABELAS DE ALERTA (INTELIGÊNCIA DO SISTEMA) -->
+<div class="row mt-5">
+    <!-- Tabela 1: Stock Baixo -->
+    <div class="col-md-6">
+        <div class="card card-apple h-100">
+            <h5 class="fw-bold mb-4" style="color: #d81b60;">⚠️ Reposição de Stock</h5>
+            <div class="table-responsive">
+                <table class="table table-borderless align-middle">
+                    <thead class="text-muted" style="font-size: 0.8rem;">
+                        <tr><th>PRODUTO</th><th class="text-end">STOCK ATUAL</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for p in alertas_stock %}
+                        <tr class="border-bottom">
+                            <td class="py-3 fw-semibold">{{ p.nome }}</td>
+                            <td class="text-end py-3 text-danger fw-bold">{{ p.stock_actual }} un.</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="2" class="text-center py-5 text-muted">✅ Tudo em ordem com o stock.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabela 2: Validade FEFO -->
+    <div class="col-md-6">
+        <div class="card card-apple h-100">
+            <h5 class="fw-bold mb-4" style="color: #4b0082;">⏳ Alertas de Validade (FEFO)</h5>
+            <div class="table-responsive">
+                <table class="table table-borderless align-middle">
+                    <thead class="text-muted" style="font-size: 0.8rem;">
+                        <tr><th>PRODUTO / LOTE</th><th class="text-end">VENCIMENTO</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for item in alertas_validade %}
+                        <tr class="border-bottom">
+                            <td class="py-3 fw-semibold">{{ item.produto.nome }} <br><small class="text-muted">Lote: {{ item.lote }}</small></td>
+                            <td class="text-end py-3 text-warning fw-bold">{{ item.validade|date:"d/m/Y" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="2" class="text-center py-5 text-muted">🎉 Nenhum produto a vencer em 30 dias.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- NOVO BLOCO: PATRIMÓNIO E GIRO -->
+<div class="row g-4 mt-2">
+    <div class="col-md-6">
+        <div class="card card-apple" style="background: #f8f9fa;">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <small class="text-muted fw-bold">VALOR DO INVENTÁRIO (STOCK)</small>
+                    <h4 class="fw-bold mt-1 text-dark">{{ valor_inventario|floatformat:2 }} Kz</h4>
+                </div>
+                <div class="fs-1">📦</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card card-apple" style="background: #e8f5e9; border: 1px solid #c8e6c9;">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <small class="text-success fw-bold">CAPITAL DE GIRO TOTAL (RF10)</small>
+                    <h4 class="fw-bold mt-1 text-success">{{ capital_giro|floatformat:2 }} Kz</h4>
+                </div>
+                <div class="fs-1">💰</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

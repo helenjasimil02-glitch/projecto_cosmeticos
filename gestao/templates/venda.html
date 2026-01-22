@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="pt-3 pb-2 mb-4 border-bottom">
+    <h1 class="fw-bold">Nova Venda 🛍️</h1>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card card-apple">
+            <form method="POST">
+                {% csrf_token %}
+                
+                <div class="mb-4">
+                    <label class="form-label text-muted small fw-bold">1. SELECIONE O PRODUTO</label>
+                    <select name="produto" class="form-select form-select-lg border-0 bg-light" required>
+                        <option value="">Escolha um cosmético...</option>
+                        {% for p in produtos %}
+                        <option value="{{ p.id }}">{{ p.nome }} ({{ p.marca }}) - {{ p.preco_venda }} Kz</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <label class="form-label text-muted small fw-bold">2. QUANTIDADE</label>
+                        <input type="number" name="quantidade" class="form-control form-control-lg border-0 bg-light" value="1" min="1" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-muted small fw-bold">3. PAGAMENTO</label>
+                        <select name="metodo_pagamento" class="form-select form-select-lg border-0 bg-light" required>
+                            <option value="DIN">Dinheiro</option>
+                            <option value="TPA">Multicaixa / TPA</option>
+                            <option value="TRANS">Transferência</option>
+                        </select>
+                    </div>
+                </div>
+
+                <button type="submit" class="nav-link btn-venda w-100 py-3 shadow border-0">
+    Confirmar e Finalizar Venda
+</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Espaço para dicas ou resumo lateral -->
+    <div class="col-md-4">
+        <div class="alert alert-info border-0 rounded-4 p-4 shadow-sm" style="background-color: #e3f2fd;">
+            <h6 class="fw-bold">Dica de Gestão 💡</h6>
+            <p class="small mb-0">O sistema baixa o stock automaticamente e prioriza os lotes que vencem primeiro (FEFO).</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1 class="fw-bold mb-4">Relatórios Mensais 📈</h1>
+<div class="card card-apple">
+    <table class="table align-middle">
+        <thead>
+            <tr class="text-muted">
+                <th>MÊS/ANO</th>
+                <th>RECEITAS</th>
+                <th>CUSTOS/SAÍDAS</th>
+                <th>RESULTADO FINAL</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in relatorio_final %}
+            <tr>
+                <td class="fw-bold">{{ item.mes|date:"F Y"|upper }}</td>
+                <td class="text-success">{{ item.vendas|floatformat:2 }} Kz</td>
+                <td class="text-danger">{{ item.saidas|floatformat:2 }} Kz</td>
+                <td class="fw-bold {% if item.lucro >= 0 %}text-primary{% else %}text-danger{% endif %}">
+                    {{ item.lucro|floatformat:2 }} Kz
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
