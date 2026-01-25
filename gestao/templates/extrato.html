@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+{% block page_title %}Extrato de Caixa{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="fw-bold mb-0">Movimentações de Caixa 💰</h2>
+    <div class="d-flex gap-2">
+        <a href="{% url 'add_receita' %}" class="btn btn-success rounded-pill px-4 fw-bold">+ Receita Extra</a>
+        <a href="{% url 'add_despesa' %}" class="btn btn-danger rounded-pill px-4 fw-bold">+ Nova Despesa</a>
+    </div>
+</div>
+
+<div class="row mb-4 g-3">
+    <div class="col-md-4"><div class="card card-apple p-3 border-start border-success border-4 text-center"><small class="text-muted fw-bold">TOTAL ENTRADAS</small><div class="h5 fw-bold text-success">{{ total_entradas|floatformat:2 }} Kz</div></div></div>
+    <div class="col-md-4"><div class="card card-apple p-3 border-start border-danger border-4 text-center"><small class="text-muted fw-bold">TOTAL SAÍDAS</small><div class="h5 fw-bold text-danger">{{ total_saidas|floatformat:2 }} Kz</div></div></div>
+    <div class="col-md-4"><div class="card card-apple p-3 border-start border-primary border-4 text-center bg-primary-subtle"><small class="text-primary fw-bold">SALDO EM CAIXA</small><div class="h4 fw-bold text-primary">{{ saldo_final|floatformat:2 }} Kz</div></div></div>
+</div>
+
+<div class="card card-apple border-0 shadow-sm p-4">
+    <table class="table table-hover align-middle">
+        <thead>
+            <tr class="text-muted small">
+                <th>DATA</th>
+                <th>DESCRIÇÃO / OPERAÇÃO</th>
+                <th class="text-center">TIPO</th>
+                <th class="text-end">VALOR</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for m in movimentacoes %}
+            <tr class="border-bottom">
+                <td class="small">{{ m.data|date:"d/m/Y" }}</td>
+                <td class="fw-semibold">{{ m.desc }}</td>
+                <td class="text-center"><span class="badge {% if m.tipo == 'Entrada' %}bg-success-subtle text-success{% else %}bg-danger-subtle text-danger{% endif %} rounded-pill px-3">{{ m.tipo }}</span></td>
+                <td class="text-end fw-bold {{ m.cor }}">{% if m.tipo == 'Entrada' %}+{% else %}-{% endif %} {{ m.valor|floatformat:2 }} Kz</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

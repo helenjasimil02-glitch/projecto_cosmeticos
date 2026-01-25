@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h3 class="fw-bold">💰 Receitas Extras</h3>
+    <a href="{% url 'add_receita' %}" class="btn btn-dark rounded-pill">+ Registar Entrada</a>
+</div>
+<div class="card card-apple">
+    <table class="table">
+        <thead><tr class="text-muted"><th>DESCRIÇÃO</th><th class="text-end">VALOR</th></tr></thead>
+        <tbody>
+            {% for r in receitas %}
+            <tr><td>{{ r.descricao }}</td><td class="text-end text-success fw-bold">{{ r.valor|floatformat:2 }} Kz</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

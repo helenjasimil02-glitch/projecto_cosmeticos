@@ -1,54 +1,91 @@
 {% extends 'base.html' %}
+{% block page_title %}Ponto de Venda (PDV){% endblock %}
 
 {% block content %}
-<div class="pt-3 pb-2 mb-4 border-bottom">
-    <h1 class="fw-bold">Nova Venda 🛍️</h1>
-</div>
-
-<div class="row">
-    <div class="col-md-6">
+<div class="row g-4">
+    <!-- LADO ESQUERDO: SELEÇÃO -->
+    <div class="col-md-5">
         <div class="card card-apple">
-            <form method="POST">
+            <h5 class="fw-bold mb-4">🛍️ Adicionar Produtos</h5>
+            <div class="mb-3">
+                <label class="small fw-bold text-muted text-uppercase">Produto</label>
+                <select id="sel-prod" class="form-select border-0 bg-light p-3 rounded-4">
+                    <option value="">Escolha o cosmético...</option>
+                    {% for p in produtos %}
+                    <option value="{{ p.id }}" data-preco="{{ p.preco_venda }}" data-nome="{{ p.nome }}">{{ p.nome }} ({{ p.marca }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="mb-4">
+                <label class="small fw-bold text-muted text-uppercase">Quantidade</label>
+                <input type="number" id="inp-qtd" class="form-control border-0 bg-light p-3 rounded-4" value="1" min="1">
+            </div>
+            <button type="button" onclick="add()" class="btn btn-dark w-100 py-3 rounded-pill fw-bold">➕ Adicionar</button>
+        </div>
+    </div>
+
+    <!-- LADO DIREITO: CARRINHO -->
+    <div class="col-md-7">
+        <div class="card card-apple">
+            <h5 class="fw-bold mb-4">🛒 Carrinho</h5>
+            <table class="table" id="tab-venda">
+                <thead class="text-muted small"><tr><th>PRODUTO</th><th class="text-center">QTD</th><th class="text-end">TOTAL</th></tr></thead>
+                <tbody></tbody>
+                <tfoot><tr><th colspan="2" class="pt-4">TOTAL A PAGAR:</th><th class="text-end pt-4 h4 text-primary" id="total-venda">0,00 Kz</th></tr></tfoot>
+            </table>
+            
+            <form method="POST" onsubmit="prepararEnvio()">
                 {% csrf_token %}
-                
-                <div class="mb-4">
-                    <label class="form-label text-muted small fw-bold">1. SELECIONE O PRODUTO</label>
-                    <select name="produto" class="form-select form-select-lg border-0 bg-light" required>
-                        <option value="">Escolha um cosmético...</option>
-                        {% for p in produtos %}
-                        <option value="{{ p.id }}">{{ p.nome }} ({{ p.marca }}) - {{ p.preco_venda }} Kz</option>
-                        {% endfor %}
+                <input type="hidden" name="carrinho_dados" id="carrinho_dados">
+                <div class="mb-3">
+                    <label class="small fw-bold text-muted text-uppercase">Método de Pagamento</label>
+                    <select name="metodo_pagamento" class="form-select border-0 bg-light p-3 rounded-4" required>
+                        <option value="DIN">Dinheiro</option>
+                        <option value="TPA">Multicaixa / TPA</option>
                     </select>
                 </div>
-
-                <div class="row mb-4">
-                    <div class="col-md-6">
-                        <label class="form-label text-muted small fw-bold">2. QUANTIDADE</label>
-                        <input type="number" name="quantidade" class="form-control form-control-lg border-0 bg-light" value="1" min="1" required>
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label text-muted small fw-bold">3. PAGAMENTO</label>
-                        <select name="metodo_pagamento" class="form-select form-select-lg border-0 bg-light" required>
-                            <option value="DIN">Dinheiro</option>
-                            <option value="TPA">Multicaixa / TPA</option>
-                            <option value="TRANS">Transferência</option>
-                        </select>
-                    </div>
-                </div>
-
-                <button type="submit" class="nav-link btn-venda w-100 py-3 shadow border-0">
-    Confirmar e Finalizar Venda
-</button>
+                <button type="submit" class="btn w-100 py-3 rounded-pill fw-bold text-white shadow" style="background: #d81b60;">✅ FINALIZAR VENDA</button>
             </form>
         </div>
     </div>
-
-    <!-- Espaço para dicas ou resumo lateral -->
-    <div class="col-md-4">
-        <div class="alert alert-info border-0 rounded-4 p-4 shadow-sm" style="background-color: #e3f2fd;">
-            <h6 class="fw-bold">Dica de Gestão 💡</h6>
-            <p class="small mb-0">O sistema baixa o stock automaticamente e prioriza os lotes que vencem primeiro (FEFO).</p>
-        </div>
-    </div>
 </div>
+
+<script>
+    let carrinho = [];
+    let totalGeral = 0;
+
+    function add() {
+        const sel = document.getElementById('sel-prod');
+        const opt = sel.options[sel.selectedIndex];
+        if (!sel.value) return;
+
+        const item = {
+            id: sel.value,
+            nome: opt.getAttribute('data-nome'),
+            preco: parseFloat(opt.getAttribute('data-preco')),
+            quantidade: parseInt(document.getElementById('inp-qtd').value)
+        };
+
+        carrinho.push(item);
+        renderizar();
+    }
+
+    function renderizar() {
+        const corpo = document.querySelector('#tab-venda tbody');
+        corpo.innerHTML = '';
+        totalGeral = 0;
+
+        carrinho.forEach((item, index) => {
+            const subtotal = item.preco * item.quantidade;
+            totalGeral += subtotal;
+            corpo.innerHTML += `<tr><td>${item.nome}</td><td class="text-center">${item.quantidade}</td><td class="text-end">${subtotal.toLocaleString()} Kz</td></tr>`;
+        });
+
+        document.getElementById('total-venda').innerText = totalGeral.toLocaleString() + ' Kz';
+    }
+
+    function prepararEnvio() {
+        document.getElementById('carrinho_dados').value = JSON.stringify(carrinho);
+    }
+</script>
 {% endblock %}

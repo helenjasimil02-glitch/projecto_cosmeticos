@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h3 class="fw-bold">🤝 Fornecedores</h3>
+    <a href="{% url 'add_fornecedor' %}" class="btn btn-dark rounded-pill">+ Novo Fornecedor</a>
+</div>
+<div class="card card-apple">
+    <table class="table">
+        <thead><tr class="text-muted"><th>NOME</th><th>CONTACTO</th></tr></thead>
+        <tbody>
+            {% for f in fornecedores %}
+            <tr><td class="fw-bold">{{ f.nome }}</td><td>{{ f.contacto }}</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row justify-content-center mt-5">
+    <div class="col-md-6">
+        <div class="card card-apple p-5">
+            <h3 class="fw-bold mb-4 text-center">{{ titulo }}</h3>
+            <form method="POST">
+                {% csrf_token %}
+                
+                {% if 'Fornecedor' in titulo %}
+                    <div class="mb-3">
+                        <label class="small fw-bold text-muted">NOME DO FORNECEDOR</label>
+                        <input type="text" name="nome" class="form-control border-0 bg-light p-3" required>
+                    </div>
+                    <div class="mb-4">
+                        <label class="small fw-bold text-muted">CONTACTO</label>
+                        <input type="text" name="contacto" class="form-control border-0 bg-light p-3">
+                    </div>
+                {% else %}
+                    <div class="mb-3">
+                        <label class="small fw-bold text-muted">DESCRIÇÃO / CONCEITO</label>
+                        <input type="text" name="descricao" class="form-control border-0 bg-light p-3" required>
+                    </div>
+                    <div class="mb-4">
+                        <label class="small fw-bold text-muted">VALOR (Kz)</label>
+                        <input type="number" step="0.01" name="valor" class="form-control border-0 bg-light p-3" required>
+                    </div>
+                {% endif %}
+
+                <button type="submit" class="btn btn-dark w-100 py-3 rounded-pill fw-bold">GUARDAR REGISTO</button>
+                <a href="javascript:history.back()" class="btn btn-link w-100 mt-2 text-muted">Cancelar</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

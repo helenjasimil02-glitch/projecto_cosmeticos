@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% block page_title %}Inventário de Stock{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="fw-bold mb-0">Produtos em Stock 📦</h2>
+    {% if user.is_superuser %}<a href="/admin/gestao/produto/add/" class="btn btn-dark rounded-pill px-4">+ Novo</a>{% endif %}
+</div>
+
+<form method="GET" action="{% url 'lista_produtos' %}" class="mb-4">
+    <div class="input-group card border-0 shadow-sm rounded-4 flex-row p-2">
+        <input type="text" name="q" value="{{ query|default:'' }}" class="form-control border-0 bg-transparent" placeholder="Pesquisar por nome ou marca...">
+        <button class="btn btn-primary rounded-3 px-4" type="submit">Buscar</button>
+    </div>
+</form>
+
+<div class="card card-apple">
+    <table class="table table-hover align-middle">
+        <thead>
+            <tr class="text-muted small">
+                <th>PRODUTO / MARCA</th>
+                <th class="text-end">STOCK</th>
+                <th class="text-end">PREÇO VENDA</th>
+                <th class="text-center">ESTADO</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in produtos %}
+            <tr>
+                <td><strong>{{ p.nome }}</strong><br><small class="text-muted">{{ p.marca }}</small></td>
+                <td class="text-end fw-bold">{{ p.stock_actual }} un.</td>
+                <td class="text-end text-primary fw-bold">{{ p.preco_venda|floatformat:2 }} Kz</td>
+                <td class="text-center">
+                    {% if p.stock_actual <= p.stock_minimo %}<span class="badge bg-danger-subtle text-danger rounded-pill px-3">Reposição</span>
+                    {% else %}<span class="badge bg-success-subtle text-success rounded-pill px-3">OK</span>{% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

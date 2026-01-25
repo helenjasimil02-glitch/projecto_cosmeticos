@@ -82,42 +82,9 @@ class ProdutoAdmin(admin.ModelAdmin):
         return proximo_lote.validade.strftime('%d/%m/%y')
     status_validade.short_description = "Validade"
 
-# --- DASHBOARD FINANCEIRO ---
-@admin.register(ReceitaExtra)
-class DashboardAdmin(admin.ModelAdmin):
-    list_display = ('descricao', 'valor', 'data')
-
-    def changelist_view(self, request, extra_context=None):
-        total_vendas = Venda.objects.aggregate(Sum('valor_total'))['valor_total__sum'] or 0
-        total_extras = ReceitaExtra.objects.aggregate(Sum('valor'))['valor__sum'] or 0
-        total_despesas = Despesa.objects.aggregate(Sum('valor'))['valor__sum'] or 0
-        total_compras = Compra.objects.aggregate(Sum('valor_total'))['valor_total__sum'] or 0
-        
-        entradas = float(total_vendas + total_extras)
-        saidas = float(total_despesas + total_compras)
-        lucro = entradas - saidas
-
-        entradas_f = f"{entradas:,.2f} Kz"
-        saidas_f = f"{saidas:,.2f} Kz"
-        lucro_f = f"{lucro:,.2f} Kz"
-
-        extra_context = extra_context or {}
-        extra_context['title'] = format_html(
-            """
-            <div style="background: #ffffff; padding: 20px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 20px; box-shadow: 2px 2px 5px rgba(0,0,0,0.1);">
-                <h2 style="margin-top:0; color:#2c3e50; font-family: sans-serif;">📊 Resumo de Fluxo de Caixa</h2>
-                <div style="display: flex; gap: 40px;">
-                    <div><small style="color:gray;">TOTAL ENTRADAS</small><br><b style="color:#28a745; font-size: 18px;">{}</b></div>
-                    <div><small style="color:gray;">TOTAL SAÍDAS</small><br><b style="color:#dc3545; font-size: 18px;">{}</b></div>
-                    <div style="border-left: 2px solid #eee; padding-left: 40px;"><small style="color:gray;">LUCRO LÍQUIDO</small><br><b style="color:#007bff; font-size: 22px;">{}</b></div>
-                </div>
-            </div>
-            """,
-            entradas_f, saidas_f, lucro_f
-        )
-        return super().changelist_view(request, extra_context=extra_context)
 
 # REGISTOS SIMPLES
 admin.site.register(Categoria)
 admin.site.register(Fornecedor)
 admin.site.register(Despesa)
+admin.site.register(ReceitaExtra)

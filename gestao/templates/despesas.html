@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% block page_title %}Gestão de Despesas{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h3 class="fw-bold">💸 Despesas Operacionais</h3>
+    <a href="{% url 'add_despesa' %}" class="btn btn-dark rounded-pill px-4">+ Registar Despesa</a>
+</div>
+<div class="card card-apple border-0 shadow-sm p-4">
+    <table class="table">
+        <thead><tr class="text-muted"><th>DESCRIÇÃO</th><th>DATA</th><th class="text-end">VALOR</th></tr></thead>
+        <tbody>
+            {% for d in despesas %}
+            <tr><td>{{ d.descricao }}</td><td>{{ d.data|date:"d/m/Y" }}</td><td class="text-end fw-bold text-danger">{{ d.valor|floatformat:2 }} Kz</td></tr>
+            {% empty %}
+            <tr><td colspan="3" class="text-center py-4">Nenhuma despesa registada.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
