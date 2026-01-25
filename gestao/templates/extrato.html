@@ -10,18 +10,21 @@
     </div>
 </div>
 
+<!-- CARDS DE RESUMO -->
 <div class="row mb-4 g-3">
     <div class="col-md-4"><div class="card card-apple p-3 border-start border-success border-4 text-center"><small class="text-muted fw-bold">TOTAL ENTRADAS</small><div class="h5 fw-bold text-success">{{ total_entradas|floatformat:2 }} Kz</div></div></div>
     <div class="col-md-4"><div class="card card-apple p-3 border-start border-danger border-4 text-center"><small class="text-muted fw-bold">TOTAL SAÍDAS</small><div class="h5 fw-bold text-danger">{{ total_saidas|floatformat:2 }} Kz</div></div></div>
     <div class="col-md-4"><div class="card card-apple p-3 border-start border-primary border-4 text-center bg-primary-subtle"><small class="text-primary fw-bold">SALDO EM CAIXA</small><div class="h4 fw-bold text-primary">{{ saldo_final|floatformat:2 }} Kz</div></div></div>
 </div>
 
+<!-- TABELA FINAL -->
 <div class="card card-apple border-0 shadow-sm p-4">
     <table class="table table-hover align-middle">
         <thead>
             <tr class="text-muted small">
+                <th>ID</th>
                 <th>DATA</th>
-                <th>DESCRIÇÃO / OPERAÇÃO</th>
+                <th>OPERAÇÃO / DESCRIÇÃO</th>
                 <th class="text-center">TIPO</th>
                 <th class="text-end">VALOR</th>
             </tr>
@@ -29,10 +32,17 @@
         <tbody>
             {% for m in movimentacoes %}
             <tr class="border-bottom">
+                <td class="text-muted small fw-bold">{{ m.id }}</td>
                 <td class="small">{{ m.data|date:"d/m/Y" }}</td>
                 <td class="fw-semibold">{{ m.desc }}</td>
-                <td class="text-center"><span class="badge {% if m.tipo == 'Entrada' %}bg-success-subtle text-success{% else %}bg-danger-subtle text-danger{% endif %} rounded-pill px-3">{{ m.tipo }}</span></td>
-                <td class="text-end fw-bold {{ m.cor }}">{% if m.tipo == 'Entrada' %}+{% else %}-{% endif %} {{ m.valor|floatformat:2 }} Kz</td>
+                <td class="text-center">
+                    <span class="badge {% if m.tipo == 'Entrada' %}bg-success-subtle text-success{% else %}bg-danger-subtle text-danger{% endif %} rounded-pill px-3">
+                        {{ m.tipo }}
+                    </span>
+                </td>
+                <td class="text-end fw-bold {{ m.cor }}">
+                    {% if m.tipo == 'Entrada' %}+{% else %}-{% endif %} {{ m.valor|floatformat:2 }} Kz
+                </td>
             </tr>
             {% endfor %}
         </tbody>
