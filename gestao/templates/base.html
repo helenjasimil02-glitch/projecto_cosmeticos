@@ -27,12 +27,18 @@
         <div class="nav-menu">
             <div class="nav-group-title">SISTEMA</div>
             <a href="/" class="nav-link {% if request.path == '/' %}active{% endif %}"><i class="bi bi-pie-chart"></i> Dashboard</a>
+            
             <div class="nav-group-title">OPERAÇÕES</div>
             <a href="/venda/" class="nav-link {% if '/venda/' in request.path %}active{% endif %}"><i class="bi bi-cart-plus" style="color: #d81b60;"></i> Vender (PDV)</a>
             <a href="/vendas/" class="nav-link {% if '/vendas/' in request.path %}active{% endif %}"><i class="bi bi-receipt"></i> Histórico Vendas</a>
+
             <div class="nav-group-title">LOGÍSTICA</div>
             <a href="/produtos/" class="nav-link {% if '/produtos/' in request.path %}active{% endif %}"><i class="bi bi-box-seam"></i> Inventário</a>
+            <!-- LINHA NOVA ADICIONADA AQUI MANTENDO O SEU ESTILO -->
+            <a href="/planeamento/" class="nav-link {% if '/planeamento/' in request.path %}active{% endif %}"><i class="bi bi-clipboard-check"></i> Gestão de Stocks</a>
+            
             {% if user.is_superuser %}<a href="/fornecedores/" class="nav-link"><i class="bi bi-truck"></i> Fornecedores</a>{% endif %}
+
             <div class="nav-group-title">FINANCEIRO</div>
             <a href="/extrato/" class="nav-link {% if '/extrato/' in request.path %}active{% endif %}"><i class="bi bi-cash-stack"></i> Extrato de Caixa</a>
             {% if user.is_superuser %}<a href="/relatorios/" class="nav-link"><i class="bi bi-graph-up-arrow"></i> Relatórios Mensais</a>{% endif %}
@@ -44,7 +50,6 @@
     <header class="topbar">
         <div class="small text-muted">
             <i class="bi bi-house-door me-1"></i> Universo de Beleza <i class="bi bi-chevron-right mx-1" style="font-size: 0.7rem;"></i> 
-            <!-- AQUI ESTÁ A MUDANÇA: O TÍTULO AGORA É DINÂMICO -->
             <span class="fw-bold text-dark">{% block page_title %}Painel Geral{% endblock %}</span>
         </div>
         <div class="d-flex align-items-center gap-4">

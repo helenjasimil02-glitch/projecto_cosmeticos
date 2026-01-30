@@ -1,63 +1,81 @@
 {% extends 'base.html' %}
+{% block page_title %}Painel de Inteligência{% endblock %}
 {% block content %}
-<h2 class="fw-bold mb-4">Painel de Controlo ✨</h2>
 
-<!-- LINHA 1: KPIs -->
+<!-- ALERTA DE RISCO (CAPITAL ESTAGNADO) -->
+{% if capital_estagnado > 0 %}
+<div class="alert border-0 shadow-sm rounded-4 mb-4 d-flex align-items-center justify-content-between" style="background: #fff5f5; border-left: 5px solid #ff4d4d !important;">
+    <div><small class="text-danger fw-bold">⚠️ ALERTA: CAPITAL ESTAGNADO</small><p class="mb-0 text-muted small">Dinheiro parado em produtos sem rotatividade: <strong>{{ capital_estagnado|floatformat:2 }} Kz</strong></p></div>
+    <i class="bi bi-exclamation-triangle text-danger fs-3"></i>
+</div>
+{% endif %}
+
+<!-- KPIs FINANCEIROS -->
 <div class="row g-3 mb-4">
-    <div class="col-md-4">
-        <div class="card p-4 border-0 shadow-sm rounded-4">
-            <small class="text-muted fw-bold">RECEITAS DO MÊS</small>
-            <h3 class="fw-bold text-success mt-1">{{ entradas|floatformat:0 }} Kz</h3>
+    <div class="col"><div class="card p-2 border-0 shadow-sm rounded-4 text-center"><small class="text-muted fw-bold" style="font-size:0.6rem;">RECEITAS</small><div class="fw-bold text-success small">{{ entradas|floatformat:0 }} Kz</div></div></div>
+    <div class="col"><div class="card p-2 border-0 shadow-sm rounded-4 text-center"><small class="text-muted fw-bold" style="font-size:0.6rem;">CUSTOS</small><div class="fw-bold text-danger small">{{ saidas|floatformat:0 }} Kz</div></div></div>
+    <div class="col"><div class="card p-2 border-0 shadow-sm rounded-4 text-center"><small class="text-muted fw-bold" style="font-size:0.6rem;">LUCRO</small><div class="fw-bold {{ status_cor }} small">{{ lucro|floatformat:0 }} Kz</div></div></div>
+    <div class="col"><div class="card p-2 border-0 shadow-sm rounded-4 text-center bg-primary text-white"><small class="fw-bold opacity-75" style="font-size:0.6rem;">VALOR STOCK</small><div class="fw-bold small">{{ valor_inventario|floatformat:0 }} Kz</div></div></div>
+    <div class="col"><div class="card p-2 border-0 shadow-sm rounded-4 text-center bg-dark text-white"><small class="fw-bold text-warning" style="font-size:0.6rem;">CAPITAL GIRO</small><div class="fw-bold small">{{ capital_giro|floatformat:0 }} Kz</div></div></div>
+</div>
+
+<!-- GRÁFICO ABC -->
+<div class="row g-3">
+    <div class="col-md-5">
+        <div class="card p-3 border-0 shadow-sm rounded-4 h-100">
+            <h6 class="fw-bold small mb-3">Distribuição de Capital (ABC) 💎</h6>
+            <div style="max-height: 180px;"><canvas id="graficoABC"></canvas></div>
         </div>
     </div>
-    <div class="col-md-4">
-        <div class="card p-4 border-0 shadow-sm rounded-4">
-            <small class="text-muted fw-bold">SAÍDAS / CUSTOS</small>
-            <h3 class="fw-bold text-danger mt-1">{{ saidas|floatformat:0 }} Kz</h3>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card p-4 border-0 shadow-sm rounded-4 bg-white">
-            <small class="text-muted fw-bold">RESULTADO LÍQUIDO</small>
-            <h3 class="fw-bold mt-1 {{ status_cor }}">{{ lucro|floatformat:0 }} Kz</h3>
+    <div class="col-md-7">
+        <div class="card p-3 border-0 shadow-sm rounded-4 h-100">
+            <h6 class="fw-bold small mb-2 text-danger">Reposição Crítica (Abaixo do Mínimo) ⚡</h6>
+            <table class="table table-sm mb-0" style="font-size: 0.75rem;">
+                {% for p in alertas_stock %}
+                <tr>
+                    <td><strong>{{ p.nome }}</strong> <span class="text-muted">({{ p.marca }})</span></td>
+                    <td class="text-end fw-bold text-danger">{{ p.stock_actual }} un.</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="2" class="text-muted small">Tudo em dia.</td></tr>
+                {% endfor %}
+            </table>
         </div>
     </div>
 </div>
 
-<div class="row g-4">
-    <!-- GRÁFICO TOP PRODUTOS -->
-    <div class="col-md-8">
-        <div class="card p-4 border-0 shadow-sm rounded-4">
-            <h6 class="fw-bold mb-4">Top 5 Produtos Mais Vendidos (Qtd) 📊</h6>
-            <canvas id="graficoTop" height="120"></canvas>
-        </div>
-    </div>
-    <!-- PATRIMÓNIO -->
-    <div class="col-md-4">
-        <div class="card p-4 border-0 shadow-sm rounded-4 bg-primary text-white mb-3">
-            <small class="fw-bold opacity-75">VALOR EM STOCK</small>
-            <h4 class="fw-bold mt-1">{{ valor_inventario|floatformat:0 }} Kz</h4>
-        </div>
-        <div class="card p-4 border-0 shadow-sm rounded-4 bg-dark text-white">
-            <small class="fw-bold opacity-75">CAPITAL DE GIRO TOTAL</small>
-            <h4 class="fw-bold mt-1">{{ capital_giro|floatformat:0 }} Kz</h4>
+<!-- ALERTAS DE VALIDADE (FEFO) NO FUNDO -->
+<div class="row g-3 mt-1">
+    <div class="col-12">
+        <div class="card p-3 border-0 shadow-sm rounded-4">
+            <h6 class="fw-bold small mb-2 text-warning">Validade Próxima (FEFO) ⏳</h6>
+            <table class="table table-sm mb-0" style="font-size: 0.75rem;">
+                <thead><tr class="text-muted"><th>PRODUTO / MARCA</th><th class="text-center">LOTE</th><th class="text-end">VENCIMENTO</th></tr></thead>
+                <tbody>
+                    {% for i in alertas_validade %}
+                    <tr>
+                        <td><strong>{{ i.produto.nome }}</strong> <span class="text-muted">({{ i.produto.marca }})</span></td>
+                        <td class="text-center">{{ i.lote }}</td>
+                        <td class="text-end fw-bold text-warning">{{ i.validade|date:"d/m/Y" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="3" class="text-center text-muted small">Nenhum lote a vencer em 30 dias.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </div>
 </div>
 
-<!-- SCRIPTS -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    new Chart(document.getElementById('graficoTop'), {
-        type: 'bar',
+    new Chart(document.getElementById('graficoABC'), {
+        type: 'doughnut',
         data: {
-            labels: {{ labels_produtos|safe }},
-            datasets: [{
-                data: {{ dados_produtos|safe }},
-                backgroundColor: '#d81b60', borderRadius: 5
-            }]
+            labels: ['Classe A', 'Classe B', 'Classe C'],
+            datasets: [{ data: {{ abc_counts|safe }}, backgroundColor: ['#4b0082', '#d81b60', '#dee2e6'], borderWeight: 0 }]
         },
-        options: { plugins: { legend: { display: false } } }
+        options: { cutout: '75%', plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } } }
     });
 </script>
 {% endblock %}

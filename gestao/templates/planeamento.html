@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+{% block page_title %}Planeamento Estratégico de Compras{% endblock %}
+{% block content %}
+<h3 class="fw-bold mb-4">📦 Gestão de Suprimentos e ABC</h3>
+
+<div class="card card-apple p-4 border-0 shadow-sm mb-4 bg-dark text-white">
+    <h6 class="fw-bold text-warning">💡 Sugestão do Sistema (SAD)</h6>
+    <p class="small opacity-75">Produtos de alto impacto (Classe A/B) com stock crítico.</p>
+    <ul class="mb-0">
+        {% for s in sugestoes %}
+        <li class="small">{{ s.nome }} ({{ s.marca }}) - Repor urgente!</li>
+        {% endfor %}
+    </ul>
+</div>
+
+<div class="card card-apple p-4">
+    <table class="table table-hover align-middle">
+        <thead>
+            <tr class="text-muted small">
+                <th>PRODUTO / MARCA</th>
+                <th class="text-center">ABC</th>
+                <th class="text-center">GIRO</th>
+                <th class="text-end">VALOR EM STOCK</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in produtos %}
+            <tr>
+                <td><strong>{{ p.nome }}</strong><br><small class="text-muted">{{ p.marca }}</small></td>
+                <td class="text-center"><span class="badge bg-primary-subtle text-primary">Classe {{ p.classe_abc }}</span></td>
+                <td class="text-center"><small>{{ p.status_giro }}</small></td>
+                <td class="text-end fw-bold">{{ p.valor_total_stock|floatformat:2 }} Kz</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
