@@ -70,7 +70,7 @@ def extrato_caixa(request):
     movs = []
     for v in Venda.objects.all(): movs.append({'id': f"V-{v.id}", 'data': v.data.date(), 'raw_id': v.id, 'desc': "Venda", 'tipo': 'Entrada', 'valor': float(v.valor_total), 'cor': 'text-success'})
     for e in ReceitaExtra.objects.all(): movs.append({'id': f"R-{e.id}", 'data': e.data, 'raw_id': e.id, 'desc': e.descricao, 'tipo': 'Entrada', 'valor': float(e.valor), 'cor': 'text-success'})
-    for d in Despesa.objects.all(): movs.append({'id': d.id, 'data': d.data, 'desc': d.descricao, 'tipo': 'Saída', 'valor': float(d.valor), 'cor': 'text-danger'})
+    for d in Despesa.objects.all(): movs.append({'id': d.id, 'data': d.data, 'raw_id': d.id, 'desc': d.descricao, 'tipo': 'Saída', 'valor': float(d.valor), 'cor': 'text-danger'})
     for c in Compra.objects.all(): movs.append({'id': f"C-{c.id}", 'data': c.data.date(), 'raw_id': c.id, 'desc': "Compra", 'tipo': 'Saída', 'valor': float(c.valor_total), 'cor': 'text-danger'})
     movimentacoes = sorted(movs, key=lambda x: (x['data'], x['raw_id']), reverse=True)
     t_e = sum(m['valor'] for m in movimentacoes if m['tipo'] == 'Entrada')
