@@ -1,7 +1,8 @@
 import json
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
-from .models import *
+from django.contrib import messages
+from .models import Produto, Venda, ItemVenda, ItemCompra, Compra, Fornecedor, Despesa, ReceitaExtra, Categoria
 from django.db.models import Sum, F, Q
 from django.utils import timezone
 from datetime import timedelta
@@ -22,8 +23,7 @@ def dashboard(request):
     entradas_mes, saidas_mes = (v_mes + e_mes), (c_mes + d_mes)
     lucro_mes = entradas_mes - saidas_mes
 
-    # --- 2. SALDO HISTÓRICO ACUMULADO (A CORREÇÃO QUE PEDISTE) ---
-    # Somamos TUDO o que já entrou e saiu na história da loja
+    # --- 2. SALDO HISTÓRICO ACUMULADO ---
     total_vendas_geral = float(Venda.objects.aggregate(Sum('valor_total'))['valor_total__sum'] or 0)
     total_extras_geral = float(ReceitaExtra.objects.aggregate(Sum('valor'))['valor__sum'] or 0)
     total_compras_geral = float(Compra.objects.aggregate(Sum('valor_total'))['valor_total__sum'] or 0)
@@ -33,23 +33,17 @@ def dashboard(request):
 
     # --- 3. PATRIMÓNIO ATUAL ---
     valor_stock = sum(float(p.valor_total_stock()) for p in produtos)
-    
-    # O CAPITAL DE GIRO agora é o Saldo Real em caixa + o Valor em Stock
-    # Se o saldo_caixa_real for negativo (prejuízo), ele vai subtrair do valor do stock corretamente
     capital_giro_consolidado = saldo_caixa_real + valor_stock
 
     # --- 4. INTELIGÊNCIA E GRÁFICOS ---
     capital_estagnado = sum(float(p.valor_total_stock()) for p in produtos if p.status_giro() == "Estagnado ⚠️")
     
-    # Gráfico ABC (Fatia do que tem stock hoje)
     count_a = len([p for p in produtos if p.classe_abc() == 'A' and p.stock_actual > 0])
     count_b = len([p for p in produtos if p.classe_abc() == 'B' and p.stock_actual > 0])
     count_c = len([p for p in produtos if p.classe_abc() == 'C' and p.stock_actual > 0])
 
-    # Sugestão de Compra
     sugestao = [p for p in produtos if p.classe_abc() in ['A', 'B'] and p.stock_actual <= p.stock_minimo]
 
-    # Vendas Diárias (Últimos 7 dias)
     vendas_diarias = []
     dias_semana = []
     for i in range(6, -1, -1):
@@ -72,19 +66,74 @@ def dashboard(request):
     }
     return render(request, 'dashboard.html', context)
 
-# --- MANTENHA AS OUTRAS FUNÇÕES IGUAIS (registrar_venda, extrato_caixa, etc.) ---
+
 @login_required
 def registrar_venda(request):
     if request.method == "POST":
         carrinho_json = request.POST.get('carrinho_dados')
-        itens = json.loads(carrinho_json)
-        with transaction.atomic():
-            venda = Venda.objects.create(utilizador=request.user, metodo_pagamento=request.POST.get('metodo_pagamento'))
-            for i in itens:
-                prod = Produto.objects.get(id=i['id'])
-                ItemVenda.objects.create(venda=venda, produto=prod, quantidade=int(i['quantidade']), preco_unitario=prod.preco_venda)
-        return redirect('dashboard')
+
+        # Validar se o carrinho não está vazio
+        if not carrinho_json:
+            messages.error(request, "O carrinho está vazio. Adiciona pelo menos um produto.")
+            return redirect('registrar_venda')
+
+        try:
+            itens = json.loads(carrinho_json)
+        except json.JSONDecodeError:
+            messages.error(request, "Erro ao processar o carrinho. Tenta novamente.")
+            return redirect('registrar_venda')
+
+        if not itens:
+            messages.error(request, "O carrinho está vazio. Adiciona pelo menos um produto.")
+            return redirect('registrar_venda')
+
+        try:
+            with transaction.atomic():
+                # ── VALIDAÇÃO DE STOCK ANTES DE CRIAR A VENDA ──
+                erros_stock = []
+                produtos_venda = []
+
+                for i in itens:
+                    # select_for_update bloqueia o registo durante a transação
+                    # evita que duas vendas simultâneas esgotem o mesmo stock
+                    prod = Produto.objects.select_for_update().get(id=i['id'])
+                    qtd_pedida = int(i['quantidade'])
+
+                    if prod.stock_actual < qtd_pedida:
+                        erros_stock.append(
+                            f"{prod.nome} — stock disponível: {prod.stock_actual} un. (pedido: {qtd_pedida} un.)"
+                        )
+                    else:
+                        produtos_venda.append((prod, qtd_pedida))
+
+                # Se houver qualquer erro de stock, cancela tudo e avisa
+                if erros_stock:
+                    for erro in erros_stock:
+                        messages.error(request, f"Stock insuficiente: {erro}")
+                    return redirect('registrar_venda')
+
+                # Tudo ok — criar a venda
+                venda = Venda.objects.create(
+                    utilizador=request.user,
+                    metodo_pagamento=request.POST.get('metodo_pagamento')
+                )
+                for prod, qtd in produtos_venda:
+                    ItemVenda.objects.create(
+                        venda=venda,
+                        produto=prod,
+                        quantidade=qtd,
+                        preco_unitario=prod.preco_venda
+                    )
+
+            messages.success(request, f"Venda #{venda.id} registada com sucesso!")
+            return redirect('ver_fatura', venda_id=venda.id)
+
+        except Exception as e:
+            messages.error(request, f"Erro ao registar a venda. Tenta novamente.")
+            return redirect('registrar_venda')
+
     return render(request, 'venda.html', {'produtos': Produto.objects.filter(stock_actual__gt=0)})
+
 
 @login_required
 def extrato_caixa(request):
@@ -98,17 +147,21 @@ def extrato_caixa(request):
     t_s = sum(m['valor'] for m in movimentacoes if m['tipo'] == 'Saída')
     return render(request, 'extrato.html', {'movimentacoes': movimentacoes, 'saldo_final': t_e - t_s, 'total_entradas': t_e, 'total_saidas': t_s})
 
+
 @login_required
 def lista_produtos(request):
     query = request.GET.get('q')
     produtos = Produto.objects.filter(Q(nome__icontains=query) | Q(marca__icontains=query)) if query else Produto.objects.all()
     return render(request, 'produtos.html', {'produtos': produtos, 'query': query})
 
+
 @login_required
 def planeamento_compras(request):
     produtos = Produto.objects.all().order_by('nome')
     sugestoes = [p for p in produtos if p.stock_actual <= p.stock_minimo or p.classe_abc() == 'A']
-    return render(request, 'planeamento.html', {'produtos': produtos, 'sugestoes': sugestoes})
+    erro = request.GET.get('erro')
+    return render(request, 'planeamento.html', {'produtos': produtos, 'sugestoes': sugestoes, 'erro': erro})
+
 
 @login_required
 def relatorios(request):
@@ -123,30 +176,37 @@ def relatorios(request):
             relatorio_final.append({'mes': d_mes, 'vendas': float(v)+float(e), 'saidas': float(d)+float(c), 'lucro': float(v)+float(e)-(float(d)+float(c))})
     return render(request, 'relatorios.html', {'relatorio_final': relatorio_final})
 
+
 @login_required
 def lista_vendas(request): return render(request, 'lista_vendas.html', {'vendas': Venda.objects.all().order_by('-data')})
+
 @login_required
 def ver_fatura(request, venda_id): return render(request, 'fatura.html', {'venda': get_object_or_404(Venda, id=venda_id)})
+
 @login_required
 def lista_fornecedores(request): return render(request, 'fornecedores.html', {'fornecedores': Fornecedor.objects.all()})
+
 @login_required
 def add_fornecedor(request):
     if request.method == "POST":
         Fornecedor.objects.create(nome=request.POST.get('nome'), contacto=request.POST.get('contacto'))
         return redirect('lista_fornecedores')
     return render(request, 'add_generic.html', {'titulo': 'Novo Fornecedor'})
+
 @login_required
 def add_despesa(request):
     if request.method == "POST":
         Despesa.objects.create(descricao=request.POST.get('descricao'), valor=request.POST.get('valor'), data=timezone.now())
         return redirect('extrato_caixa')
     return render(request, 'add_generic.html', {'titulo': 'Nova Despesa'})
+
 @login_required
 def add_receita(request):
     if request.method == "POST":
         ReceitaExtra.objects.create(descricao=request.POST.get('descricao'), valor=request.POST.get('valor'), data=timezone.now())
         return redirect('extrato_caixa')
     return render(request, 'add_generic.html', {'titulo': 'Nova Receita Extra'})
+
 
 @login_required
 def add_produto(request):
@@ -186,6 +246,7 @@ def add_produto(request):
                     preco_venda=preco_venda,
                     stock_minimo=int(stock_minimo),
                 )
+                messages.success(request, f"Produto '{nome}' criado com sucesso!")
                 return redirect('lista_produtos')
             except Exception as e:
                 errors['geral'] = f"Erro ao guardar: {str(e)}"
@@ -235,6 +296,7 @@ def editar_produto(request, produto_id):
                 produto.preco_venda  = preco_venda
                 produto.stock_minimo = int(stock_minimo)
                 produto.save()
+                messages.success(request, f"Produto '{nome}' atualizado com sucesso!")
                 return redirect('lista_produtos')
             except Exception as e:
                 errors['geral'] = f"Erro ao guardar: {str(e)}"
@@ -254,6 +316,7 @@ def editar_produto(request, produto_id):
         'form_data': form_data,
         'produto': produto,
     })
+
 
 @login_required
 def add_compra(request):
@@ -292,6 +355,7 @@ def add_compra(request):
                             validade=i['validade'],
                             lote=i.get('lote', '') or '',
                         )
+                messages.success(request, "Compra registada com sucesso!")
                 return redirect('lista_produtos')
             except Exception as e:
                 erro = f"Erro ao registar compra: {str(e)}"
@@ -301,6 +365,7 @@ def add_compra(request):
         'fornecedores': fornecedores,
         'erro': erro,
     })
+
 
 @login_required
 def ajuste_stock(request):
@@ -316,12 +381,14 @@ def ajuste_stock(request):
             produto = Produto.objects.get(id=produto_id)
             if tipo == 'remover':
                 if quantidade > produto.stock_actual:
-                    return redirect('/planeamento/?erro=Quantidade+superior+ao+stock+actual')
+                    messages.error(request, f"Quantidade superior ao stock actual ({produto.stock_actual} un.).")
+                    return redirect('planeamento_compras')
                 produto.stock_actual -= quantidade
             else:
                 produto.stock_actual += quantidade
             produto.save()
-        except Exception as e:
-            return redirect('/planeamento/?erro=' + str(e))
+            messages.success(request, f"Stock de '{produto.nome}' ajustado com sucesso.")
+        except Exception:
+            messages.error(request, "Erro ao ajustar stock. Tenta novamente.")
 
     return redirect('planeamento_compras')

@@ -12,7 +12,7 @@ def atualizar_entrada_stock(sender, instance, created, **kwargs):
         with transaction.atomic():
             produto = instance.produto
             
-            # --- CÁLCULO FINANCEIRO ULTRA-PRECISO ---
+            # --- CÁLCULO DE CUSTO MÉDIO PONDERADO ---
             qtd_antiga = Decimal(str(produto.stock_actual))
             preco_antigo = Decimal(str(produto.preco_custo))
             
@@ -22,30 +22,30 @@ def atualizar_entrada_stock(sender, instance, created, **kwargs):
             total_unidades = qtd_antiga + nova_quantidade
             
             if total_unidades > 0:
-                # Fazemos a conta usando Decimal para não haver dízimas infinitas
                 valor_total = (qtd_antiga * preco_antigo) + (nova_quantidade * novo_preco_compra)
-                # O quantize garante que o número morra em 2 casas decimais, ponto final.
                 custo_medio = (valor_total / total_unidades).quantize(Decimal('0.01'))
                 produto.preco_custo = custo_medio
             
             produto.stock_actual += instance.quantidade
-            produto.save()
+            # skip_clean=True porque os signals não devem ser bloqueados
+            # pela validação de preço de venda vs custo
+            produto.save(skip_clean=True)
 
     # --- RECALCULAR TOTAL DA COMPRA ---
     compra = instance.compra
     total_calculado = sum(item.quantidade * item.preco_custo for item in compra.itens.all())
-    # Convertemos para Decimal antes de salvar na Compra
     compra.valor_total = Decimal(str(total_calculado)).quantize(Decimal('0.01'))
     type(compra).objects.filter(id=compra.id).update(valor_total=compra.valor_total)
+
     
-# --- 2. SAÍDA DE STOCK (VENDAS) ---
+# --- SAÍDA DE STOCK (VENDAS) ---
 @receiver(post_save, sender=ItemVenda)
 def atualizar_saida_stock(sender, instance, created, **kwargs):
     if created:
         with transaction.atomic():
             produto = instance.produto
             
-            # Lógica FEFO: Baixa as quantidades dos lotes individuais (RF03)
+            # Lógica FEFO: baixa as quantidades dos lotes por ordem de validade
             quantidade_a_baixar = instance.quantidade
             lotes = ItemCompra.objects.filter(produto=produto, quantidade__gt=0).order_by('validade')
             
@@ -59,11 +59,11 @@ def atualizar_saida_stock(sender, instance, created, **kwargs):
                     lote.quantidade = 0
                 lote.save()
 
-            # Atualiza o Saldo Global do Produto (RF02)
             produto.stock_actual -= instance.quantidade
-            produto.save()
+            # skip_clean=True pelo mesmo motivo — operação interna do sistema
+            produto.save(skip_clean=True)
 
-    # RECALCULAR TOTAL DA VENDA (RF06)
+    # RECALCULAR TOTAL DA VENDA
     venda = instance.venda
     total_calculado = venda.itens.aggregate(
         total=Sum(F('quantidade') * F('preco_unitario'), output_field=models.DecimalField())

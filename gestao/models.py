@@ -25,7 +25,7 @@ class Produto(models.Model):
     
     def __str__(self): return f"{self.nome} - {self.marca}"
 
-    # --- FUNÇÕES DE INTELIGÊNCIA (O QUE O ADMIN E DASHBOARD PRECISAM) ---
+    # --- FUNÇÕES DE INTELIGÊNCIA ---
     
     def margem_lucro(self):
         if self.preco_custo and self.preco_custo > 0:
@@ -38,7 +38,6 @@ class Produto(models.Model):
         return self.stock_actual * self.preco_custo
 
     def classe_abc(self):
-        # Baseado no Preço de Venda para funcionar com stock zero
         v = float(self.preco_venda or 0)
         if v >= 5000: return 'A'
         if v >= 2000: return 'B'
@@ -46,13 +45,11 @@ class Produto(models.Model):
 
     def status_giro(self):
         vendas_count = self.itemvenda_set.count()
-        # Vamos verificar a data da última compra para saber se o produto é novo
         ultima_compra = self.itemcompra_set.order_by('-compra__data').first()
         
         if vendas_count > 10: return "Rápido ⚡"
         if vendas_count > 0: return "Normal"
         
-        # Se não tem vendas, mas entrou há menos de 7 dias, não é estagnado
         if ultima_compra:
             from django.utils import timezone
             dias_na_loja = (timezone.now() - ultima_compra.compra.data).days
@@ -60,16 +57,19 @@ class Produto(models.Model):
             
         return "Estagnado ⚠️"
 
-    # --- VALIDAÇÕES DE SEGURANÇA ---
+    # --- VALIDAÇÕES ---
     def clean(self):
         from django.core.exceptions import ValidationError
         if self.preco_venda is not None:
-            # Só barra o preço se o produto já tiver custo (pós-compra)
             if self.preco_custo > 0 and self.preco_venda < self.preco_custo:
                 raise ValidationError({'preco_venda': f"O preço de venda não pode ser menor que o custo ({self.preco_custo} Kz)!"})
 
     def save(self, *args, **kwargs):
-        self.full_clean()
+        # skip_clean=True é usado pelos signals internos para evitar
+        # que a validação de preço bloqueie atualizações automáticas de stock
+        skip_clean = kwargs.pop('skip_clean', False)
+        if not skip_clean:
+            self.full_clean()
         super().save(*args, **kwargs)
 
     class Meta:
