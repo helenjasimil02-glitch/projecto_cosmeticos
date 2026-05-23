@@ -147,3 +147,181 @@ def add_receita(request):
         ReceitaExtra.objects.create(descricao=request.POST.get('descricao'), valor=request.POST.get('valor'), data=timezone.now())
         return redirect('extrato_caixa')
     return render(request, 'add_generic.html', {'titulo': 'Nova Receita Extra'})
+
+@login_required
+def add_produto(request):
+    if not request.user.is_superuser:
+        return redirect('lista_produtos')
+
+    categorias = Categoria.objects.all().order_by('nome')
+    errors = {}
+    form_data = {}
+
+    if request.method == "POST":
+        form_data = request.POST
+        nome         = request.POST.get('nome', '').strip()
+        marca        = request.POST.get('marca', '').strip()
+        categoria_id = request.POST.get('categoria')
+        preco_venda  = request.POST.get('preco_venda')
+        stock_minimo = request.POST.get('stock_minimo', 5)
+
+        if not nome:
+            errors['nome'] = "O nome do produto é obrigatório."
+        if not marca:
+            errors['marca'] = "A marca é obrigatória."
+        if not categoria_id:
+            errors['categoria'] = "Selecciona uma categoria."
+        if not preco_venda:
+            errors['preco_venda'] = "O preço de venda é obrigatório."
+        if nome and marca and Produto.objects.filter(nome__iexact=nome, marca__iexact=marca).exists():
+            errors['duplicado'] = f"Já existe um produto '{nome}' da marca '{marca}'."
+
+        if not errors:
+            try:
+                categoria = Categoria.objects.get(id=categoria_id)
+                Produto.objects.create(
+                    nome=nome,
+                    marca=marca,
+                    categoria=categoria,
+                    preco_venda=preco_venda,
+                    stock_minimo=int(stock_minimo),
+                )
+                return redirect('lista_produtos')
+            except Exception as e:
+                errors['geral'] = f"Erro ao guardar: {str(e)}"
+
+    return render(request, 'add_produto.html', {
+        'titulo': 'Novo Produto',
+        'categorias': categorias,
+        'errors': errors,
+        'form_data': form_data,
+    })
+
+
+@login_required
+def editar_produto(request, produto_id):
+    if not request.user.is_superuser:
+        return redirect('lista_produtos')
+
+    produto    = get_object_or_404(Produto, id=produto_id)
+    categorias = Categoria.objects.all().order_by('nome')
+    errors     = {}
+
+    if request.method == "POST":
+        nome         = request.POST.get('nome', '').strip()
+        marca        = request.POST.get('marca', '').strip()
+        categoria_id = request.POST.get('categoria')
+        preco_venda  = request.POST.get('preco_venda')
+        stock_minimo = request.POST.get('stock_minimo', 5)
+
+        if not nome:
+            errors['nome'] = "O nome do produto é obrigatório."
+        if not marca:
+            errors['marca'] = "A marca é obrigatória."
+        if not categoria_id:
+            errors['categoria'] = "Selecciona uma categoria."
+        if not preco_venda:
+            errors['preco_venda'] = "O preço de venda é obrigatório."
+        if nome and marca and Produto.objects.filter(
+            nome__iexact=nome, marca__iexact=marca
+        ).exclude(id=produto_id).exists():
+            errors['duplicado'] = f"Já existe outro produto '{nome}' da marca '{marca}'."
+
+        if not errors:
+            try:
+                produto.nome         = nome
+                produto.marca        = marca
+                produto.categoria    = Categoria.objects.get(id=categoria_id)
+                produto.preco_venda  = preco_venda
+                produto.stock_minimo = int(stock_minimo)
+                produto.save()
+                return redirect('lista_produtos')
+            except Exception as e:
+                errors['geral'] = f"Erro ao guardar: {str(e)}"
+
+    form_data = {
+        'nome':        produto.nome,
+        'marca':       produto.marca,
+        'categoria':   str(produto.categoria_id),
+        'preco_venda': produto.preco_venda,
+        'stock_minimo': produto.stock_minimo,
+    }
+
+    return render(request, 'add_produto.html', {
+        'titulo': f'Editar Produto — {produto.nome}',
+        'categorias': categorias,
+        'errors': errors,
+        'form_data': form_data,
+        'produto': produto,
+    })
+
+@login_required
+def add_compra(request):
+    if not request.user.is_superuser:
+        return redirect('dashboard')
+
+    produtos     = Produto.objects.all().order_by('nome')
+    fornecedores = Fornecedor.objects.all().order_by('nome')
+    erro = None
+
+    if request.method == "POST":
+        fornecedor_id = request.POST.get('fornecedor')
+        itens_json    = request.POST.get('itens_dados', '[]')
+
+        try:
+            itens = json.loads(itens_json)
+        except Exception:
+            itens = []
+
+        if not fornecedor_id:
+            erro = "Selecciona um fornecedor."
+        elif not itens:
+            erro = "Adiciona pelo menos um produto à compra."
+        else:
+            try:
+                with transaction.atomic():
+                    fornecedor = Fornecedor.objects.get(id=fornecedor_id)
+                    compra = Compra.objects.create(fornecedor=fornecedor)
+                    for i in itens:
+                        produto = Produto.objects.get(id=i['id'])
+                        ItemCompra.objects.create(
+                            compra=compra,
+                            produto=produto,
+                            quantidade=int(i['quantidade']),
+                            preco_custo=i['preco_custo'],
+                            validade=i['validade'],
+                            lote=i.get('lote', '') or '',
+                        )
+                return redirect('lista_produtos')
+            except Exception as e:
+                erro = f"Erro ao registar compra: {str(e)}"
+
+    return render(request, 'add_compra.html', {
+        'produtos': produtos,
+        'fornecedores': fornecedores,
+        'erro': erro,
+    })
+
+@login_required
+def ajuste_stock(request):
+    if not request.user.is_superuser:
+        return redirect('planeamento_compras')
+
+    if request.method == "POST":
+        produto_id = request.POST.get('produto_id')
+        tipo       = request.POST.get('tipo')
+        quantidade = int(request.POST.get('quantidade', 0))
+
+        try:
+            produto = Produto.objects.get(id=produto_id)
+            if tipo == 'remover':
+                if quantidade > produto.stock_actual:
+                    return redirect('/planeamento/?erro=Quantidade+superior+ao+stock+actual')
+                produto.stock_actual -= quantidade
+            else:
+                produto.stock_actual += quantidade
+            produto.save()
+        except Exception as e:
+            return redirect('/planeamento/?erro=' + str(e))
+
+    return redirect('planeamento_compras')

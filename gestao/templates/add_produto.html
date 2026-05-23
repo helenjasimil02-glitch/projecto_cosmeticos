@@ -1,0 +1,120 @@
+{% extends 'base.html' %}
+{% block page_title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="fw-bold mb-0">
+        <i class="bi bi-box-seam me-2" style="color: #4b0082;"></i>{{ titulo }}
+    </h2>
+    <a href="{% url 'lista_produtos' %}" class="btn btn-outline-secondary rounded-pill px-4">
+        <i class="bi bi-arrow-left me-1"></i> Voltar ao Inventário
+    </a>
+</div>
+
+{% if errors %}
+<div class="alert alert-danger rounded-4 border-0 shadow-sm mb-4">
+    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+    <strong>Corrija os seguintes erros:</strong>
+    <ul class="mb-0 mt-2">
+        {% for campo, msg in errors.items %}
+        <li>{{ msg }}</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+<form method="POST">
+    {% csrf_token %}
+    <div class="row g-4">
+
+        <!-- COLUNA ESQUERDA: IDENTIFICAÇÃO -->
+        <div class="col-md-7">
+            <div class="card card-apple p-4">
+                <h6 class="fw-bold text-muted text-uppercase mb-3" style="font-size: 0.7rem; letter-spacing: 1px;">
+                    <i class="bi bi-tag me-1"></i> Identificação do Produto
+                </h6>
+
+                <div class="mb-3">
+                    <label class="small fw-bold text-muted text-uppercase mb-1">Nome do Produto <span class="text-danger">*</span></label>
+                    <input type="text" name="nome" value="{{ form_data.nome|default:'' }}"
+                        class="form-control border-0 bg-light p-3 rounded-3"
+                        placeholder="Ex: Hidratante Corporal" required>
+                </div>
+
+                <div class="mb-3">
+                    <label class="small fw-bold text-muted text-uppercase mb-1">Marca <span class="text-danger">*</span></label>
+                    <input type="text" name="marca" value="{{ form_data.marca|default:'' }}"
+                        class="form-control border-0 bg-light p-3 rounded-3"
+                        placeholder="Ex: MAKKE" required>
+                </div>
+
+                <div class="mb-3">
+                    <label class="small fw-bold text-muted text-uppercase mb-1">Categoria <span class="text-danger">*</span></label>
+                    <select name="categoria" class="form-select border-0 bg-light p-3 rounded-3" required>
+                        <option value="">Seleccionar categoria...</option>
+                        {% for cat in categorias %}
+                        <option value="{{ cat.id }}" {% if form_data.categoria == cat.id|stringformat:"s" %}selected{% endif %}>
+                            {{ cat.nome }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- COLUNA DIREITA: PREÇOS E STOCK -->
+        <div class="col-md-5">
+            <div class="card card-apple p-4">
+                <h6 class="fw-bold text-muted text-uppercase mb-3" style="font-size: 0.7rem; letter-spacing: 1px;">
+                    <i class="bi bi-currency-exchange me-1"></i> Preços & Stock
+                </h6>
+
+                <div class="mb-3">
+                    <label class="small fw-bold text-muted text-uppercase mb-1">Preço de Venda (Kz) <span class="text-danger">*</span></label>
+                    <div class="input-group">
+                        <input type="number" name="preco_venda" value="{{ form_data.preco_venda|default:'' }}"
+                            step="0.01" min="0"
+                            class="form-control border-0 bg-light p-3 rounded-3"
+                            placeholder="0.00" required>
+                        <span class="input-group-text border-0 bg-light text-muted fw-bold">Kz</span>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="small fw-bold text-muted text-uppercase mb-1">Stock Mínimo (alertas)</label>
+                    <input type="number" name="stock_minimo" value="{{ form_data.stock_minimo|default:'5' }}"
+                        min="0"
+                        class="form-control border-0 bg-light p-3 rounded-3"
+                        placeholder="5">
+                    <small class="text-muted">O sistema alerta quando o stock descer abaixo deste valor.</small>
+                </div>
+            </div>
+
+            <!-- NOTA INFORMATIVA -->
+            <div class="card border-0 rounded-4 p-3 mt-3" style="background: #f0ebff;">
+                <div class="d-flex gap-2 align-items-start">
+                    <i class="bi bi-info-circle-fill mt-1" style="color: #4b0082;"></i>
+                    <div>
+                        <p class="mb-0 small fw-bold" style="color: #4b0082;">Preço de custo</p>
+                        <p class="mb-0 small text-muted">O custo médio é calculado automaticamente quando registares a primeira compra deste produto.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- BOTÕES -->
+        <div class="col-12">
+            <div class="d-flex gap-3 justify-content-end">
+                <a href="{% url 'lista_produtos' %}" class="btn btn-outline-secondary rounded-pill px-5 py-2">
+                    Cancelar
+                </a>
+                <button type="submit" class="btn rounded-pill px-5 py-2 fw-bold text-white shadow-sm"
+                    style="background: #4b0082;">
+                    <i class="bi bi-check-lg me-1"></i> Guardar Produto
+                </button>
+            </div>
+        </div>
+
+    </div>
+</form>
+{% endblock %}

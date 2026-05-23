@@ -30,7 +30,7 @@ class VendaAdmin(admin.ModelAdmin):
 @admin.register(Produto)
 class ProdutoAdmin(admin.ModelAdmin):
     list_display = ('nome', 'marca', 'exibir_custo_medio', 'exibir_preco_venda', 'exibir_lucro', 'exibir_stock', 'exibir_valor_inventario', 'status_validade')
-    list_filter = ('categoria', 'marca')
+    #list_filter = ('categoria', 'marca')
     search_fields = ('nome', 'marca')
 
     # 1. Custo Médio

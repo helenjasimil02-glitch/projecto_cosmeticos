@@ -18,7 +18,7 @@ class Produto(models.Model):
     nome = models.CharField(max_length=200)
     categoria = models.ForeignKey(Categoria, on_delete=models.CASCADE, verbose_name="Categoria")
     marca = models.CharField(max_length=100, verbose_name="Marca")
-    preco_custo = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Preço de Custo (Kz)")
+    preco_custo = models.DecimalField(max_digits=15, decimal_places=2, default=0, verbose_name="Preço de Custo (Kz)")
     preco_venda = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Preço de Venda (Kz)")
     stock_actual = models.IntegerField(default=0, verbose_name="Stock Actual")
     stock_minimo = models.IntegerField(default=5, verbose_name="Stock Mínimo")
@@ -87,7 +87,7 @@ class ItemCompra(models.Model):
     compra = models.ForeignKey(Compra, on_delete=models.CASCADE, related_name='itens')
     produto = models.ForeignKey(Produto, on_delete=models.CASCADE)
     quantidade = models.IntegerField()
-    preco_custo = models.DecimalField(max_digits=10, decimal_places=2)
+    preco_custo = models.DecimalField(max_digits=15, decimal_places=2)
     validade = models.DateField()
     lote = models.CharField(max_length=50, blank=True, null=True)
 

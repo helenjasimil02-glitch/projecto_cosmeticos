@@ -1,0 +1,31 @@
+# ─── Python ───────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# ─── Django ───────────────────────────────────────────────────
+*.log
+local_settings.py
+db.sqlite3
+media/
+
+# ─── SEGREDOS — NUNCA COMMITAR ────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ─── Ambientes virtuais ───────────────────────────────────────
+venv/
+env/
+.venv/
+
+# ─── IDEs ─────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp

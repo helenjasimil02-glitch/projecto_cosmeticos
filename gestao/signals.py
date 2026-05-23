@@ -4,39 +4,40 @@ from django.dispatch import receiver
 from django.db.models import F, Sum
 from .models import ItemVenda, ItemCompra, Produto
 from django.core.exceptions import ValidationError
+from decimal import Decimal
 
-# --- 1. ENTRADA DE STOCK (COMPRAS) ---
 @receiver(post_save, sender=ItemCompra)
 def atualizar_entrada_stock(sender, instance, created, **kwargs):
     if created:
         with transaction.atomic():
             produto = instance.produto
             
-            # Cálculo do Custo Médio Ponderado (RF05/RF08)
-            qtd_antiga = produto.stock_actual
-            preco_antigo = produto.preco_custo
-            total_unidades = qtd_antiga + instance.quantidade
+            # --- CÁLCULO FINANCEIRO ULTRA-PRECISO ---
+            qtd_antiga = Decimal(str(produto.stock_actual))
+            preco_antigo = Decimal(str(produto.preco_custo))
+            
+            nova_quantidade = Decimal(str(instance.quantidade))
+            novo_preco_compra = Decimal(str(instance.preco_custo))
+            
+            total_unidades = qtd_antiga + nova_quantidade
             
             if total_unidades > 0:
-                custo_medio = ((qtd_antiga * preco_antigo) + (instance.quantidade * instance.preco_custo)) / total_unidades
+                # Fazemos a conta usando Decimal para não haver dízimas infinitas
+                valor_total = (qtd_antiga * preco_antigo) + (nova_quantidade * novo_preco_compra)
+                # O quantize garante que o número morra em 2 casas decimais, ponto final.
+                custo_medio = (valor_total / total_unidades).quantize(Decimal('0.01'))
                 produto.preco_custo = custo_medio
             
-            # Atualiza o Stock Físico (RF02)
             produto.stock_actual += instance.quantidade
             produto.save()
 
-    # RECALCULAR TOTAL DA COMPRA (Garante que nunca fica 0.00)
+    # --- RECALCULAR TOTAL DA COMPRA ---
     compra = instance.compra
-    # Agregamos a soma de (quantidade * preco) de todos os itens ligados a esta compra
-    total_calculado = compra.itens.aggregate(
-        total=Sum(F('quantidade') * F('preco_custo'), output_field=models.DecimalField())
-    )['total'] or 0
+    total_calculado = sum(item.quantidade * item.preco_custo for item in compra.itens.all())
+    # Convertemos para Decimal antes de salvar na Compra
+    compra.valor_total = Decimal(str(total_calculado)).quantize(Decimal('0.01'))
+    type(compra).objects.filter(id=compra.id).update(valor_total=compra.valor_total)
     
-    # Atualiza o campo valor_total da Compra sem disparar o signal novamente (usando update)
-    # Isso evita o loop infinito e garante que o valor aparece no banco
-    type(compra).objects.filter(id=compra.id).update(valor_total=total_calculado)
-
-
 # --- 2. SAÍDA DE STOCK (VENDAS) ---
 @receiver(post_save, sender=ItemVenda)
 def atualizar_saida_stock(sender, instance, created, **kwargs):

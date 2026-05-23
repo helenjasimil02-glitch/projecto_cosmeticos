@@ -1,16 +1,81 @@
 {% extends 'base.html' %}
 {% block page_title %}Planeamento Estratégico de Compras{% endblock %}
 {% block content %}
+
 <h3 class="fw-bold mb-4">📦 Gestão de Suprimentos e ABC</h3>
+
+{% if mensagem %}
+<div class="alert alert-success rounded-4 border-0 shadow-sm mb-4">
+    <i class="bi bi-check-circle-fill me-2"></i> {{ mensagem }}
+</div>
+{% endif %}
+
+{% if erro %}
+<div class="alert alert-danger rounded-4 border-0 shadow-sm mb-4">
+    <i class="bi bi-exclamation-triangle-fill me-2"></i> {{ erro }}
+</div>
+{% endif %}
 
 <div class="card card-apple p-4 border-0 shadow-sm mb-4 bg-dark text-white">
     <h6 class="fw-bold text-warning">💡 Sugestão do Sistema (SAD)</h6>
     <p class="small opacity-75">Produtos de alto impacto (Classe A/B) com stock crítico.</p>
     <ul class="mb-0">
         {% for s in sugestoes %}
-        <li class="small">{{ s.nome }} ({{ s.marca }}) - Repor urgente!</li>
+        <li class="small">
+            {{ s.nome }} ({{ s.marca }}) - Repor urgente!
+            <a href="{% url 'add_compra' %}?produto_id={{ s.id }}"
+               class="badge bg-warning text-dark ms-2" style="text-decoration:none;">
+                Repor agora →
+            </a>
+        </li>
         {% endfor %}
     </ul>
+</div>
+
+<!-- MODAL DE AJUSTE DE STOCK -->
+<div class="modal fade" id="modalAjuste" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 rounded-4 shadow">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">Ajuste de Stock</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{% url 'ajuste_stock' %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <input type="hidden" name="produto_id" id="modal-produto-id">
+                    <p class="text-muted small mb-3">Produto: <strong id="modal-produto-nome"></strong></p>
+
+                    <div class="mb-3">
+                        <label class="small fw-bold text-muted text-uppercase mb-1">Tipo de Ajuste</label>
+                        <select name="tipo" class="form-select border-0 bg-light p-3 rounded-3">
+                            <option value="remover">Remover unidades (quebra, perda, vencido)</option>
+                            <option value="adicionar">Adicionar unidades (correcção manual)</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="small fw-bold text-muted text-uppercase mb-1">Quantidade</label>
+                        <input type="number" name="quantidade" min="1" value="1"
+                            class="form-control border-0 bg-light p-3 rounded-3" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="small fw-bold text-muted text-uppercase mb-1">Motivo</label>
+                        <input type="text" name="motivo"
+                            class="form-control border-0 bg-light p-3 rounded-3"
+                            placeholder="Ex: produto danificado, contagem física..." required>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-outline-secondary rounded-pill px-4"
+                        data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn rounded-pill px-4 fw-bold text-white"
+                        style="background:#4b0082;">Confirmar Ajuste</button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 
 <div class="card card-apple p-4">
@@ -21,18 +86,47 @@
                 <th class="text-center">ABC</th>
                 <th class="text-center">GIRO</th>
                 <th class="text-end">VALOR EM STOCK</th>
+                {% if user.is_superuser %}<th></th>{% endif %}
             </tr>
         </thead>
         <tbody>
             {% for p in produtos %}
             <tr>
                 <td><strong>{{ p.nome }}</strong><br><small class="text-muted">{{ p.marca }}</small></td>
-                <td class="text-center"><span class="badge bg-primary-subtle text-primary">Classe {{ p.classe_abc }}</span></td>
+                <td class="text-center">
+                    <span class="badge bg-primary-subtle text-primary">Classe {{ p.classe_abc }}</span>
+                </td>
                 <td class="text-center"><small>{{ p.status_giro }}</small></td>
                 <td class="text-end fw-bold">{{ p.valor_total_stock|floatformat:2 }} Kz</td>
+                {% if user.is_superuser %}
+                <td class="text-end">
+                    <div class="d-flex gap-2 justify-content-end">
+                        <a href="{% url 'add_compra' %}?produto_id={{ p.id }}"
+                           class="btn btn-sm rounded-pill px-3 fw-bold text-white"
+                           style="background:#4b0082; font-size:0.75rem;">
+                            <i class="bi bi-box-arrow-in-down me-1"></i> Repor
+                        </a>
+                        <button type="button"
+                            class="btn btn-sm btn-outline-warning rounded-pill px-3"
+                            style="font-size:0.75rem;"
+                            onclick="abrirAjuste('{{ p.id }}', '{{ p.nome }} ({{ p.marca }})')">
+                            <i class="bi bi-sliders me-1"></i> Ajuste
+                        </button>
+                    </div>
+                </td>
+                {% endif %}
             </tr>
             {% endfor %}
         </tbody>
     </table>
 </div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+function abrirAjuste(id, nome) {
+    document.getElementById('modal-produto-id').value = id;
+    document.getElementById('modal-produto-nome').innerText = nome;
+    new bootstrap.Modal(document.getElementById('modalAjuste')).show();
+}
+</script>
 {% endblock %}
