@@ -1,0 +1,112 @@
+{% extends 'base.html' %}
+{% block page_title %}Histórico de Compras{% endblock %}
+
+{% block content %}
+<h1 class="fw-bold mb-4">Histórico de Compras 📦</h1>
+
+<!-- FILTROS -->
+<div class="card card-apple mb-4">
+    <form method="GET" class="row g-3 align-items-end">
+        <div class="col-md-4">
+            <label class="small fw-bold text-muted text-uppercase">Fornecedor</label>
+            <select name="fornecedor" class="form-select border-0 bg-light rounded-4">
+                <option value="">Todos os fornecedores</option>
+                {% for f in fornecedores %}
+                <option value="{{ f.id }}" {% if request.GET.fornecedor == f.id|stringformat:"s" %}selected{% endif %}>
+                    {{ f.nome }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="small fw-bold text-muted text-uppercase">Data início</label>
+            <input type="date" name="data_inicio" value="{{ request.GET.data_inicio }}" class="form-control border-0 bg-light rounded-4">
+        </div>
+        <div class="col-md-3">
+            <label class="small fw-bold text-muted text-uppercase">Data fim</label>
+            <input type="date" name="data_fim" value="{{ request.GET.data_fim }}" class="form-control border-0 bg-light rounded-4">
+        </div>
+        <div class="col-md-2 d-flex gap-2">
+            <button type="submit" class="btn btn-dark rounded-pill px-4 w-100">🔍 Filtrar</button>
+            <a href="{% url 'lista_compras' %}" class="btn btn-outline-secondary rounded-pill px-3">✕</a>
+        </div>
+    </form>
+</div>
+
+<!-- TABELA -->
+<div class="card card-apple">
+    <table class="table table-hover">
+        <thead>
+            <tr class="text-muted">
+                <th>ID</th>
+                <th>DATA</th>
+                <th>FORNECEDOR</th>
+                <th>PRODUTOS</th>
+                <th class="text-end">TOTAL</th>
+                <th>AÇÕES</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for c in compras %}
+            <tr>
+                <td class="text-muted">#{{ c.id }}</td>
+                <td>{{ c.data|date:"d/m/Y H:i" }}</td>
+                <td>{{ c.fornecedor.nome|default:"—" }}</td>
+                <td>
+                    <span class="badge bg-light text-dark border">{{ c.itens.count }} produto{{ c.itens.count|pluralize:"s" }}</span>
+                </td>
+                <td class="fw-bold text-end" style="color: #d81b60;">{{ c.valor_total|floatformat:2 }} Kz</td>
+                <td>
+                    <button class="btn btn-sm btn-outline-dark rounded-pill" 
+                            data-bs-toggle="collapse" 
+                            data-bs-target="#detalhe-{{ c.id }}">
+                        📋 Ver Detalhes
+                    </button>
+                </td>
+            </tr>
+            <!-- LINHA EXPANSÍVEL COM DETALHES DOS ITENS -->
+            <tr class="collapse" id="detalhe-{{ c.id }}">
+                <td colspan="6" class="bg-light p-0">
+                    <div class="p-3">
+                        <table class="table table-sm mb-0">
+                            <thead>
+                                <tr class="text-muted small">
+                                    <th>PRODUTO</th>
+                                    <th class="text-center">QTD</th>
+                                    <th class="text-center">CUSTO UNIT.</th>
+                                    <th class="text-center">VALIDADE</th>
+                                    <th class="text-center">LOTE</th>
+                                    <th class="text-end">SUBTOTAL</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in c.itens.all %}
+                                <tr>
+                                    <td>{{ item.produto.nome }}</td>
+                                    <td class="text-center">{{ item.quantidade }} un.</td>
+                                    <td class="text-center">{{ item.preco_custo|floatformat:2 }} Kz</td>
+                                    <td class="text-center">{{ item.validade|date:"d/m/Y" }}</td>
+                                    <td class="text-center">{{ item.lote|default:"—" }}</td>
+                                    <td class="text-end fw-bold">{{ item.quantidade|floatformat:0 }} × {{ item.preco_custo|floatformat:2 }} Kz</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="6" class="text-center py-4 text-muted">Nenhuma compra encontrada.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- TOTAIS -->
+    {% if compras %}
+    <div class="border-top pt-3 d-flex justify-content-between align-items-center">
+        <span class="text-muted small">{{ compras|length }} compra{{ compras|length|pluralize:"s" }} encontrada{{ compras|length|pluralize:"s" }}</span>
+        <span class="fw-bold">Total gasto: <span style="color: #d81b60;">{{ total_gasto|floatformat:2 }} Kz</span></span>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -317,6 +317,30 @@ def editar_produto(request, produto_id):
         'produto': produto,
     })
 
+@login_required
+def lista_compras(request):
+    compras = Compra.objects.all().order_by('-data')
+    fornecedores = Fornecedor.objects.all().order_by('nome')
+
+    # Filtros
+    fornecedor_id = request.GET.get('fornecedor')
+    data_inicio = request.GET.get('data_inicio')
+    data_fim = request.GET.get('data_fim')
+
+    if fornecedor_id:
+        compras = compras.filter(fornecedor__id=fornecedor_id)
+    if data_inicio:
+        compras = compras.filter(data__date__gte=data_inicio)
+    if data_fim:
+        compras = compras.filter(data__date__lte=data_fim)
+
+    total_gasto = sum(c.valor_total for c in compras)
+
+    return render(request, 'lista_compras.html', {
+        'compras': compras,
+        'fornecedores': fornecedores,
+        'total_gasto': total_gasto,
+    })
 
 @login_required
 def add_compra(request):

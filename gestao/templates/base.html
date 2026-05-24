@@ -32,6 +32,9 @@
             <a href="/venda/" class="nav-link {% if '/venda/' in request.path %}active{% endif %}"><i class="bi bi-cart-plus" style="color: #d81b60;"></i> Vender (PDV)</a>
             {% if user.is_superuser %}<a href="{% url 'add_compra' %}" class="nav-link {% if '/compras/' in request.path %}active{% endif %}"><i class="bi bi-box-arrow-in-down"></i> Registar Compra</a>{% endif %}
             <a href="/vendas/" class="nav-link {% if '/vendas/' in request.path %}active{% endif %}"><i class="bi bi-receipt"></i> Histórico Vendas</a>
+            <a href="{% url 'lista_compras' %}" class="nav-link {% if '/compras/' in request.path %}active{% endif %}">
+    <i class="bi bi-box-arrow-in-down"></i> Histórico Compras
+</a>
 
             <div class="nav-group-title">LOGÍSTICA</div>
             <a href="/produtos/" class="nav-link {% if '/produtos/' in request.path %}active{% endif %}"><i class="bi bi-box-seam"></i> Inventário</a>
