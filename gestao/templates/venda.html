@@ -24,7 +24,6 @@
             <div class="mb-3">
                 <label class="small fw-bold text-muted text-uppercase">Quantidade</label>
                 <input type="number" id="inp-qtd" class="form-control border-0 bg-light p-3 rounded-4" value="1" min="1">
-                <!-- Aviso de stock aparece aqui -->
                 <div id="aviso-stock" class="mt-2" style="display:none;"></div>
             </div>
             <button type="button" onclick="add()" class="btn btn-dark w-100 py-3 rounded-pill fw-bold">➕ Adicionar</button>
@@ -44,20 +43,58 @@
                     <tr><th colspan="3" class="pt-4">TOTAL A PAGAR:</th><th class="text-end pt-4 h4 text-primary" id="total-venda">0,00 Kz</th></tr>
                 </tfoot>
             </table>
-            
-            <form method="POST" onsubmit="return prepararEnvio()">
+
+            <form method="POST" id="form-venda" onsubmit="return prepararEnvio()">
                 {% csrf_token %}
                 <input type="hidden" name="carrinho_dados" id="carrinho_dados">
                 <div class="mb-3">
                     <label class="small fw-bold text-muted text-uppercase">Método de Pagamento</label>
-                    <select name="metodo_pagamento" class="form-select border-0 bg-light p-3 rounded-4" required>
+                    <select name="metodo_pagamento" id="sel-pagamento" class="form-select border-0 bg-light p-3 rounded-4" required>
                         <option value="DIN">Dinheiro</option>
                         <option value="TPA">Multicaixa / TPA</option>
                         <option value="TRANS">Transferência</option>
                     </select>
                 </div>
-                <button type="submit" class="btn w-100 py-3 rounded-pill fw-bold text-white shadow" style="background: #d81b60;">✅ FINALIZAR VENDA</button>
+                <button type="button" class="btn w-100 py-3 rounded-pill fw-bold text-white shadow"
+                        style="background: #d81b60;" onclick="abrirModal()">
+                    ✅ FINALIZAR VENDA
+                </button>
             </form>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL DE CONFIRMAÇÃO -->
+<div class="modal fade" id="modalConfirmar" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0 shadow">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">🧾 Confirmar Venda</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted mb-3">Revê o pedido antes de confirmar:</p>
+                <div class="bg-light rounded-4 p-3">
+                    <div id="modal-resumo"></div>
+                    <div class="border-top mt-2 pt-2 d-flex justify-content-between fw-bold">
+                        <span>Total a pagar:</span>
+                        <span style="color:#d81b60;" id="modal-total"></span>
+                    </div>
+                    <div class="mt-2 pt-1 d-flex justify-content-between small text-muted">
+                        <span>Método de pagamento:</span>
+                        <span id="modal-pagamento" class="fw-bold text-dark"></span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">
+                    ✏️ Corrigir
+                </button>
+                <button type="button" class="btn rounded-pill px-4 fw-bold text-white"
+                        style="background:#d81b60;" onclick="prepararEnvio(); document.getElementById('form-venda').submit()">
+                    ✅ Confirmar
+                </button>
+            </div>
         </div>
     </div>
 </div>
@@ -66,7 +103,6 @@
     let carrinho = [];
     let totalGeral = 0;
 
-    // Mostrar stock disponível quando se seleciona um produto
     document.getElementById('sel-prod').addEventListener('change', function() {
         const opt = this.options[this.selectedIndex];
         const avisoDiv = document.getElementById('aviso-stock');
@@ -74,7 +110,6 @@
             const stock = parseInt(opt.getAttribute('data-stock'));
             avisoDiv.style.display = 'block';
             avisoDiv.innerHTML = `<small class="text-muted"><i class="bi bi-box-seam me-1"></i>Stock disponível: <strong>${stock} unidades</strong></small>`;
-            
         } else {
             avisoDiv.style.display = 'none';
             document.getElementById('inp-qtd').removeAttribute('max');
@@ -148,12 +183,35 @@
     }
 
     function prepararEnvio() {
-        if (carrinho.length === 0) {
-            alert('O carrinho está vazio. Adiciona pelo menos um produto.');
-            return false;
-        }
         document.getElementById('carrinho_dados').value = JSON.stringify(carrinho);
         return true;
+    }
+
+    function abrirModal() {
+        if (carrinho.length === 0) {
+            const avisoDiv = document.getElementById('aviso-stock');
+            avisoDiv.style.display = 'block';
+            avisoDiv.innerHTML = `<small class="text-danger"><i class="bi bi-exclamation-circle me-1"></i>O carrinho está vazio.</small>`;
+            return;
+        }
+
+        // Preencher resumo
+        let resumo = '';
+        carrinho.forEach(item => {
+            resumo += `
+                <div class="d-flex justify-content-between small py-1">
+                    <span>${item.nome} × ${item.quantidade}</span>
+                    <span class="fw-bold">${(item.preco * item.quantidade).toLocaleString('pt-PT')} Kz</span>
+                </div>`;
+        });
+        document.getElementById('modal-resumo').innerHTML = resumo;
+        document.getElementById('modal-total').innerText = totalGeral.toLocaleString('pt-PT') + ' Kz';
+
+        // Mostrar método de pagamento selecionado
+        const sel = document.getElementById('sel-pagamento');
+        document.getElementById('modal-pagamento').innerText = sel.options[sel.selectedIndex].text;
+
+        new bootstrap.Modal(document.getElementById('modalConfirmar')).show();
     }
 </script>
 {% endblock %}

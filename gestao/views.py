@@ -1,4 +1,5 @@
 import json
+import csv
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -7,6 +8,9 @@ from django.db.models import Sum, F, Q
 from django.utils import timezone
 from datetime import timedelta
 from django.db import transaction
+from django.http import HttpResponse
+from django.core.paginator import Paginator
+
 
 @login_required
 def dashboard(request):
@@ -137,16 +141,45 @@ def registrar_venda(request):
 
 @login_required
 def extrato_caixa(request):
+    # Filtros
+    tipo_filtro = request.GET.get('tipo', '')
+    data_inicio = request.GET.get('data_inicio', '')
+    data_fim = request.GET.get('data_fim', '')
+
     movs = []
-    for v in Venda.objects.all(): movs.append({'id': f"V-{v.id}", 'data': v.data.date(), 'raw_id': v.id, 'desc': "Venda", 'tipo': 'Entrada', 'valor': float(v.valor_total), 'cor': 'text-success'})
-    for e in ReceitaExtra.objects.all(): movs.append({'id': f"R-{e.id}", 'data': e.data, 'raw_id': e.id, 'desc': e.descricao, 'tipo': 'Entrada', 'valor': float(e.valor), 'cor': 'text-success'})
-    for d in Despesa.objects.all(): movs.append({'id': f"D-{d.id}", 'data': d.data, 'raw_id': d.id, 'desc': d.descricao, 'tipo': 'Saída', 'valor': float(d.valor), 'cor': 'text-danger'})
-    for c in Compra.objects.all(): movs.append({'id': f"C-{c.id}", 'data': c.data.date(), 'raw_id': c.id, 'desc': "Compra", 'tipo': 'Saída', 'valor': float(c.valor_total), 'cor': 'text-danger'})
+
+    if not tipo_filtro or tipo_filtro == 'entrada':
+        for v in Venda.objects.all():
+            movs.append({'id': f"V-{v.id}", 'data': v.data.date(), 'raw_id': v.id, 'desc': "Venda", 'tipo': 'Entrada', 'valor': float(v.valor_total), 'cor': 'text-success'})
+        for e in ReceitaExtra.objects.all():
+            movs.append({'id': f"R-{e.id}", 'data': e.data, 'raw_id': e.id, 'desc': e.descricao, 'tipo': 'Entrada', 'valor': float(e.valor), 'cor': 'text-success'})
+
+    if not tipo_filtro or tipo_filtro == 'saida':
+        for d in Despesa.objects.all():
+            movs.append({'id': f"D-{d.id}", 'data': d.data, 'raw_id': d.id, 'desc': d.descricao, 'tipo': 'Saída', 'valor': float(d.valor), 'cor': 'text-danger'})
+        for c in Compra.objects.all():
+            movs.append({'id': f"C-{c.id}", 'data': c.data.date(), 'raw_id': c.id, 'desc': "Compra", 'tipo': 'Saída', 'valor': float(c.valor_total), 'cor': 'text-danger'})
+
+    # Filtro por data
+    from datetime import date
+    if data_inicio:
+        movs = [m for m in movs if m['data'] >= date.fromisoformat(data_inicio)]
+    if data_fim:
+        movs = [m for m in movs if m['data'] <= date.fromisoformat(data_fim)]
+
     movimentacoes = sorted(movs, key=lambda x: (x['data'], x['raw_id']), reverse=True)
+
     t_e = sum(m['valor'] for m in movimentacoes if m['tipo'] == 'Entrada')
     t_s = sum(m['valor'] for m in movimentacoes if m['tipo'] == 'Saída')
-    return render(request, 'extrato.html', {'movimentacoes': movimentacoes, 'saldo_final': t_e - t_s, 'total_entradas': t_e, 'total_saidas': t_s})
+    paginator = Paginator(movimentacoes, 25)
+    page = paginator.get_page(request.GET.get('page'))
 
+    return render(request, 'extrato.html', {
+        'movimentacoes': movimentacoes,
+        'saldo_final': t_e - t_s,
+        'total_entradas': t_e,
+        'total_saidas': t_s,
+    })
 
 @login_required
 def lista_produtos(request):
@@ -165,17 +198,86 @@ def planeamento_compras(request):
 
 @login_required
 def relatorios(request):
-    vendas_mes = Venda.objects.dates('data', 'month', order='DESC')
-    relatorio_final = []
-    for d_mes in vendas_mes:
-        if d_mes:
-            v = Venda.objects.filter(data__month=d_mes.month, data__year=d_mes.year).aggregate(Sum('valor_total'))['valor_total__sum'] or 0
-            e = ReceitaExtra.objects.filter(data__month=d_mes.month, data__year=d_mes.year).aggregate(Sum('valor'))['valor__sum'] or 0
-            d = Despesa.objects.filter(data__month=d_mes.month, data__year=d_mes.year).aggregate(Sum('valor'))['valor__sum'] or 0
-            c = Compra.objects.filter(data__month=d_mes.month, data__year=d_mes.year).aggregate(Sum('valor_total'))['valor_total__sum'] or 0
-            relatorio_final.append({'mes': d_mes, 'vendas': float(v)+float(e), 'saidas': float(d)+float(c), 'lucro': float(v)+float(e)-(float(d)+float(c))})
-    return render(request, 'relatorios.html', {'relatorio_final': relatorio_final})
+    from django.utils import timezone
+    from django.db.models import Count
 
+    # Filtro por ano
+    ano_selecionado = request.GET.get('ano')
+    anos_disponiveis = sorted(set(
+        list(Venda.objects.dates('data', 'year').values_list('data__year', flat=True)) +
+        list(Compra.objects.dates('data', 'year').values_list('data__year', flat=True))
+    ), reverse=True)
+
+    # Recolher todos os meses com atividade
+    filtro_ano = {'data__year': ano_selecionado} if ano_selecionado else {}
+    filtro_ano_date = {'data__year': ano_selecionado} if ano_selecionado else {}
+
+    meses_vendas = set(Venda.objects.filter(**filtro_ano).dates('data', 'month'))
+    meses_despesas = set(Despesa.objects.filter(**filtro_ano_date).dates('data', 'month'))
+    meses_compras = set(Compra.objects.filter(**filtro_ano).dates('data', 'month'))
+    meses_extras = set(ReceitaExtra.objects.filter(**filtro_ano_date).dates('data', 'month'))
+    todos_meses = sorted(meses_vendas | meses_despesas | meses_compras | meses_extras, reverse=True)
+
+    relatorio_final = []
+    for d_mes in todos_meses:
+        v = float(Venda.objects.filter(data__month=d_mes.month, data__year=d_mes.year).aggregate(Sum('valor_total'))['valor_total__sum'] or 0)
+        e = float(ReceitaExtra.objects.filter(data__month=d_mes.month, data__year=d_mes.year).aggregate(Sum('valor'))['valor__sum'] or 0)
+        d = float(Despesa.objects.filter(data__month=d_mes.month, data__year=d_mes.year).aggregate(Sum('valor'))['valor__sum'] or 0)
+        c = float(Compra.objects.filter(data__month=d_mes.month, data__year=d_mes.year).aggregate(Sum('valor_total'))['valor_total__sum'] or 0)
+
+        receitas = v + e
+        custos = d + c
+        lucro = receitas - custos
+        margem = (lucro / receitas * 100) if receitas > 0 else 0
+
+        relatorio_final.append({
+            'mes': d_mes, 'vendas': receitas,
+            'saidas': custos, 'lucro': lucro, 'margem': margem,
+        })
+
+    total_receitas = sum(r['vendas'] for r in relatorio_final)
+    total_custos = sum(r['saidas'] for r in relatorio_final)
+    total_lucro = total_receitas - total_custos
+    margem_media = (total_lucro / total_receitas * 100) if total_receitas > 0 else 0
+
+    # TOP 5 PRODUTOS MAIS VENDIDOS
+    from django.db.models import Sum as DSum
+    top_produtos = (
+        ItemVenda.objects
+        .filter(**({'venda__data__year': ano_selecionado} if ano_selecionado else {}))
+        .values('produto__nome', 'produto__marca')
+        .annotate(
+            total_vendido=DSum('quantidade'),
+            receita=DSum(F('quantidade') * F('preco_unitario'))
+        )
+        .order_by('-receita')[:5]
+    )
+
+    # TOP 3 FORNECEDORES
+    top_fornecedores = (
+        Compra.objects
+        .filter(**filtro_ano)
+        .values('fornecedor__nome')
+        .annotate(total_gasto=DSum('valor_total'))
+        .order_by('-total_gasto')[:3]
+    )
+
+    # PRODUTOS ESTAGNADOS (sem vendas)
+    ids_vendidos = ItemVenda.objects.values_list('produto_id', flat=True).distinct()
+    produtos_estagnados = Produto.objects.exclude(id__in=ids_vendidos).filter(stock_actual__gt=0)[:5]
+
+    return render(request, 'relatorios.html', {
+        'relatorio_final': relatorio_final,
+        'total_receitas': total_receitas,
+        'total_custos': total_custos,
+        'total_lucro': total_lucro,
+        'margem_media': margem_media,
+        'top_produtos': top_produtos,
+        'top_fornecedores': top_fornecedores,
+        'produtos_estagnados': produtos_estagnados,
+        'anos_disponiveis': anos_disponiveis,
+        'ano_selecionado': ano_selecionado,
+    })
 
 @login_required
 def lista_vendas(request): return render(request, 'lista_vendas.html', {'vendas': Venda.objects.all().order_by('-data')})
@@ -196,17 +298,58 @@ def add_fornecedor(request):
 @login_required
 def add_despesa(request):
     if request.method == "POST":
-        Despesa.objects.create(descricao=request.POST.get('descricao'), valor=request.POST.get('valor'), data=timezone.now())
-        return redirect('extrato_caixa')
-    return render(request, 'add_generic.html', {'titulo': 'Nova Despesa'})
+        Despesa.objects.create(
+            descricao=request.POST.get('descricao'),
+            valor=request.POST.get('valor'),
+            data=request.POST.get('data') or timezone.now().date()
+        )
+        messages.success(request, "Despesa registada com sucesso!")
+        return redirect('add_despesa')
+    
+    despesas = Despesa.objects.all().order_by('-data')
+    mes = request.GET.get('mes')
+    ano = request.GET.get('ano')
+    if mes:
+        despesas = despesas.filter(data__month=mes)
+    if ano:
+        despesas = despesas.filter(data__year=ano)
+    
+    total = despesas.aggregate(Sum('valor'))['valor__sum'] or 0
+    return render(request, 'despesas.html', {
+        'despesas': despesas,
+        'total': total,
+        'hoje': timezone.now().date(),
+        'mes_selecionado': mes,
+        'ano_selecionado': ano,
+    })
 
 @login_required
 def add_receita(request):
     if request.method == "POST":
-        ReceitaExtra.objects.create(descricao=request.POST.get('descricao'), valor=request.POST.get('valor'), data=timezone.now())
-        return redirect('extrato_caixa')
-    return render(request, 'add_generic.html', {'titulo': 'Nova Receita Extra'})
-
+        ReceitaExtra.objects.create(
+            descricao=request.POST.get('descricao'),
+            valor=request.POST.get('valor'),
+            data=request.POST.get('data') or timezone.now().date()
+        )
+        messages.success(request, "Receita registada com sucesso!")
+        return redirect('add_receita')
+    
+    receitas = ReceitaExtra.objects.all().order_by('-data')
+    mes = request.GET.get('mes')
+    ano = request.GET.get('ano')
+    if mes:
+        receitas = receitas.filter(data__month=mes)
+    if ano:
+        receitas = receitas.filter(data__year=ano)
+    
+    total = receitas.aggregate(Sum('valor'))['valor__sum'] or 0
+    return render(request, 'receitas.html', {
+        'receitas': receitas,
+        'total': total,
+        'hoje': timezone.now().date(),
+        'mes_selecionado': mes,
+        'ano_selecionado': ano,
+    })
 
 @login_required
 def add_produto(request):
@@ -416,3 +559,104 @@ def ajuste_stock(request):
             messages.error(request, "Erro ao ajustar stock. Tenta novamente.")
 
     return redirect('planeamento_compras')
+
+@login_required
+def exportar_compras_csv(request):
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="historico_compras.csv"'
+    response.write('\ufeff')  # BOM para Excel abrir corretamente
+
+    writer = csv.writer(response)
+    writer.writerow(['ID', 'Data', 'Fornecedor', 'Produto', 'Quantidade', 'Custo Unit.', 'Validade', 'Lote', 'Total Compra'])
+
+    compras = Compra.objects.all().order_by('-data')
+    for c in compras:
+        for item in c.itens.all():
+            writer.writerow([
+                f'#{c.id}',
+                c.data.strftime('%d/%m/%Y %H:%M'),
+                c.fornecedor.nome if c.fornecedor else '—',
+                item.produto.nome,
+                item.quantidade,
+                item.preco_custo,
+                item.validade.strftime('%d/%m/%Y'),
+                item.lote or '—',
+                c.valor_total,
+            ])
+
+    return response
+
+@login_required
+def exportar_vendas_csv(request):
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="historico_vendas.csv"'
+    response.write('\ufeff')
+
+    writer = csv.writer(response)
+    writer.writerow(['ID', 'Data', 'Utilizador', 'Produto', 'Quantidade', 'Preço Unit.', 'Subtotal', 'Método Pagamento', 'Total Venda'])
+
+    for v in Venda.objects.all().order_by('-data'):
+        for item in v.itens.all():
+            writer.writerow([
+                f'#{v.id}',
+                v.data.strftime('%d/%m/%Y %H:%M'),
+                v.utilizador.username,
+                item.produto.nome,
+                item.quantidade,
+                item.preco_unitario,
+                item.total_item(),
+                v.get_metodo_pagamento_display(),
+                v.valor_total,
+            ])
+
+    return response
+
+
+@login_required  
+def exportar_extrato_csv(request):
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="extrato_caixa.csv"'
+    response.write('\ufeff')
+
+    writer = csv.writer(response)
+    writer.writerow(['ID', 'Data', 'Descrição', 'Tipo', 'Valor (Kz)'])
+
+    for v in Venda.objects.all():
+        writer.writerow([f'V-{v.id}', v.data.strftime('%d/%m/%Y'), 'Venda', 'Entrada', v.valor_total])
+    for e in ReceitaExtra.objects.all():
+        writer.writerow([f'R-{e.id}', e.data.strftime('%d/%m/%Y'), e.descricao, 'Entrada', e.valor])
+    for d in Despesa.objects.all():
+        writer.writerow([f'D-{d.id}', d.data.strftime('%d/%m/%Y'), d.descricao, 'Saída', d.valor])
+    for c in Compra.objects.all():
+        writer.writerow([f'C-{c.id}', c.data.strftime('%d/%m/%Y'), 'Compra de stock', 'Saída', c.valor_total])
+
+    return response
+
+# views.py
+@login_required
+def exportar_relatorio_csv(request):
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="relatorios_mensais.csv"'
+    response.write('\ufeff')
+
+    writer = csv.writer(response)
+    writer.writerow(['Mês/Ano', 'Receitas (Kz)', 'Custos (Kz)', 'Resultado (Kz)', 'Margem (%)'])
+
+    meses_vendas = set(Venda.objects.dates('data', 'month'))
+    meses_despesas = set(Despesa.objects.dates('data', 'month'))
+    meses_compras = set(Compra.objects.dates('data', 'month'))
+    meses_extras = set(ReceitaExtra.objects.dates('data', 'month'))
+    todos_meses = sorted(meses_vendas | meses_despesas | meses_compras | meses_extras, reverse=True)
+
+    for d_mes in todos_meses:
+        v = float(Venda.objects.filter(data__month=d_mes.month, data__year=d_mes.year).aggregate(Sum('valor_total'))['valor_total__sum'] or 0)
+        e = float(ReceitaExtra.objects.filter(data__month=d_mes.month, data__year=d_mes.year).aggregate(Sum('valor'))['valor__sum'] or 0)
+        d = float(Despesa.objects.filter(data__month=d_mes.month, data__year=d_mes.year).aggregate(Sum('valor'))['valor__sum'] or 0)
+        c = float(Compra.objects.filter(data__month=d_mes.month, data__year=d_mes.year).aggregate(Sum('valor_total'))['valor_total__sum'] or 0)
+        receitas = v + e
+        custos = d + c
+        lucro = receitas - custos
+        margem = (lucro / receitas * 100) if receitas > 0 else 0
+        writer.writerow([d_mes.strftime('%B %Y'), receitas, custos, lucro, f"{margem:.1f}"])
+
+    return response

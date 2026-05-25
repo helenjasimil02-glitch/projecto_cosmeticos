@@ -1,20 +1,90 @@
 {% extends 'base.html' %}
-{% block page_title %}Gestão de Despesas{% endblock %}
+{% block page_title %}Despesas Operacionais{% endblock %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h3 class="fw-bold">💸 Despesas Operacionais</h3>
-    <a href="{% url 'add_despesa' %}" class="btn btn-dark rounded-pill px-4">+ Registar Despesa</a>
-</div>
-<div class="card card-apple border-0 shadow-sm p-4">
-    <table class="table">
-        <thead><tr class="text-muted"><th>DESCRIÇÃO</th><th>DATA</th><th class="text-end">VALOR</th></tr></thead>
-        <tbody>
-            {% for d in despesas %}
-            <tr><td>{{ d.descricao }}</td><td>{{ d.data|date:"d/m/Y" }}</td><td class="text-end fw-bold text-danger">{{ d.valor|floatformat:2 }} Kz</td></tr>
-            {% empty %}
-            <tr><td colspan="3" class="text-center py-4">Nenhuma despesa registada.</td></tr>
-            {% endfor %}
-        </tbody>
-    </table>
+
+<h1 class="fw-bold mb-4">💸 Despesas Operacionais</h1>
+<!-- FILTRO POR MÊS -->
+<form method="GET" class="d-flex gap-2 align-items-end mb-4">
+    <div>
+        <label class="small fw-bold text-muted text-uppercase">Mês</label>
+        <select name="mes" class="form-select border-0 bg-white rounded-4">
+            <option value="">Todos</option>
+            <option value="1" {% if mes_selecionado == '1' %}selected{% endif %}>Janeiro</option>
+            <option value="2" {% if mes_selecionado == '2' %}selected{% endif %}>Fevereiro</option>
+            <option value="3" {% if mes_selecionado == '3' %}selected{% endif %}>Março</option>
+            <option value="4" {% if mes_selecionado == '4' %}selected{% endif %}>Abril</option>
+            <option value="5" {% if mes_selecionado == '5' %}selected{% endif %}>Maio</option>
+            <option value="6" {% if mes_selecionado == '6' %}selected{% endif %}>Junho</option>
+            <option value="7" {% if mes_selecionado == '7' %}selected{% endif %}>Julho</option>
+            <option value="8" {% if mes_selecionado == '8' %}selected{% endif %}>Agosto</option>
+            <option value="9" {% if mes_selecionado == '9' %}selected{% endif %}>Setembro</option>
+            <option value="10" {% if mes_selecionado == '10' %}selected{% endif %}>Outubro</option>
+            <option value="11" {% if mes_selecionado == '11' %}selected{% endif %}>Novembro</option>
+            <option value="12" {% if mes_selecionado == '12' %}selected{% endif %}>Dezembro</option>
+        </select>
+    </div>
+    <div>
+        <label class="small fw-bold text-muted text-uppercase">Ano</label>
+        <input type="number" name="ano" value="{{ ano_selecionado|default:'' }}" placeholder="2026" class="form-control border-0 bg-white rounded-4" style="width:100px;">
+    </div>
+    <button type="submit" class="btn btn-dark rounded-pill px-4">🔍 Filtrar</button>
+    <a href="{% url 'add_despesa' %}" class="btn btn-outline-secondary rounded-pill px-3">✕</a>
+</form>
+
+<div class="row g-4">
+    <!-- FORMULÁRIO -->
+    <div class="col-md-4">
+        <div class="card card-apple">
+            <h6 class="fw-bold mb-3">+ Registar Despesa</h6>
+            <form method="POST">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label class="small fw-bold text-muted text-uppercase">Descrição</label>
+                    <input type="text" name="descricao" class="form-control border-0 bg-light rounded-4 p-3" placeholder="Ex: Renda, água, luz..." required>
+                </div>
+                <div class="mb-3">
+                    <label class="small fw-bold text-muted text-uppercase">Valor (Kz)</label>
+                    <input type="number" name="valor" step="0.01" min="0" class="form-control border-0 bg-light rounded-4 p-3" placeholder="0.00" required>
+                </div>
+                <div class="mb-4">
+                    <label class="small fw-bold text-muted text-uppercase">Data</label>
+                    <input type="date" name="data" class="form-control border-0 bg-light rounded-4 p-3" value="{{ hoje }}">
+                </div>
+                <button type="submit" class="btn btn-danger w-100 rounded-pill fw-bold py-3">
+                    💸 Registar Despesa
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- LISTA -->
+    <div class="col-md-8">
+        <div class="card card-apple">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="fw-bold mb-0">Histórico</h6>
+                <span class="fw-bold text-danger">Total: {{ total|floatformat:2 }} Kz</span>
+            </div>
+            <table class="table table-hover align-middle">
+                <thead>
+                    <tr class="text-muted small">
+                        <th>DESCRIÇÃO</th>
+                        <th class="text-center">DATA</th>
+                        <th class="text-end">VALOR</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for d in despesas %}
+                    <tr>
+                        <td>{{ d.descricao }}</td>
+                        <td class="text-center small">{{ d.data|date:"d/m/Y" }}</td>
+                        <td class="text-end fw-bold text-danger">- {{ d.valor|floatformat:2 }} Kz</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="3" class="text-center py-4 text-muted">Nenhuma despesa registada.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
 </div>
 {% endblock %}

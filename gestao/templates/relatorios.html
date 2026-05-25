@@ -1,28 +1,162 @@
 {% extends 'base.html' %}
+{% block page_title %}Relatórios Mensais{% endblock %}
 {% block content %}
-<h1 class="fw-bold mb-4">Relatórios Mensais 📈</h1>
-<div class="card card-apple">
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="fw-bold mb-0">Relatórios Mensais 📈</h1>
+    <div class="d-flex gap-2 align-items-center">
+        <!-- FILTRO POR ANO -->
+        <form method="GET" class="d-flex gap-2">
+            <select name="ano" class="form-select border-0 bg-light rounded-pill px-3" onchange="this.form.submit()">
+                <option value="">Todos os anos</option>
+                {% for ano in anos_disponiveis %}
+                <option value="{{ ano }}" {% if ano_selecionado == ano|stringformat:"s" %}selected{% endif %}>{{ ano }}</option>
+                {% endfor %}
+            </select>
+        </form>
+        <a href="{% url 'exportar_relatorio_csv' %}" class="btn btn-outline-dark rounded-pill px-4">
+            <i class="bi bi-download me-1"></i> Exportar CSV
+        </a>
+    </div>
+</div>
+
+<!-- CARDS TOTAIS -->
+<div class="row mb-4 g-3">
+    <div class="col-md-3">
+        <div class="card card-apple p-3 text-center border-start border-success border-4">
+            <small class="text-muted fw-bold">RECEITAS TOTAIS</small>
+            <div class="h5 fw-bold text-success">{{ total_receitas|floatformat:2 }} Kz</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card card-apple p-3 text-center border-start border-danger border-4">
+            <small class="text-muted fw-bold">CUSTOS TOTAIS</small>
+            <div class="h5 fw-bold text-danger">{{ total_custos|floatformat:2 }} Kz</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card card-apple p-3 text-center border-start border-primary border-4">
+            <small class="text-muted fw-bold">RESULTADO ACUMULADO</small>
+            <div class="h5 fw-bold text-primary">{{ total_lucro|floatformat:2 }} Kz</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card card-apple p-3 text-center border-start border-warning border-4">
+            <small class="text-muted fw-bold">MARGEM MÉDIA</small>
+            <div class="h5 fw-bold text-warning">{{ margem_media|floatformat:1 }}%</div>
+        </div>
+    </div>
+</div>
+
+<!-- TABELA MENSAL -->
+<div class="card card-apple mb-4">
     <table class="table align-middle">
         <thead>
-            <tr class="text-muted">
-                <th>MÊS/ANO</th>
-                <th>RECEITAS</th>
-                <th>CUSTOS/SAÍDAS</th>
-                <th>RESULTADO FINAL</th>
+            <tr class="text-muted small">
+                <th>MÊS / ANO</th>
+                <th class="text-end">RECEITAS</th>
+                <th class="text-end">CUSTOS</th>
+                <th class="text-end">RESULTADO</th>
+                <th class="text-end">MARGEM</th>
+                <th class="text-center">DESEMPENHO</th>
             </tr>
         </thead>
         <tbody>
             {% for item in relatorio_final %}
             <tr>
                 <td class="fw-bold">{{ item.mes|date:"F Y"|upper }}</td>
-                <td class="text-success">{{ item.vendas|floatformat:2 }} Kz</td>
-                <td class="text-danger">{{ item.saidas|floatformat:2 }} Kz</td>
-                <td class="fw-bold {% if item.lucro >= 0 %}text-primary{% else %}text-danger{% endif %}">
-                    {{ item.lucro|floatformat:2 }} Kz
+                <td class="text-end text-success">{{ item.vendas|floatformat:2 }} Kz</td>
+                <td class="text-end text-danger">{{ item.saidas|floatformat:2 }} Kz</td>
+                <td class="text-end fw-bold {% if item.lucro >= 0 %}text-primary{% else %}text-danger{% endif %}">
+                    {% if item.lucro >= 0 %}+{% endif %}{{ item.lucro|floatformat:2 }} Kz
+                </td>
+                <td class="text-end">
+                    <span class="badge {% if item.margem >= 20 %}bg-success{% elif item.margem >= 0 %}bg-warning text-dark{% else %}bg-danger{% endif %} rounded-pill">
+                        {{ item.margem|floatformat:1 }}%
+                    </span>
+                </td>
+                <td class="text-center">
+                    {% if item.lucro >= 0 %}
+                        <i class="bi bi-arrow-up-circle-fill text-success"></i>
+                    {% else %}
+                        <i class="bi bi-arrow-down-circle-fill text-danger"></i>
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="6" class="text-center py-4 text-muted">Nenhum dado disponível.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- INTELIGÊNCIA DE NEGÓCIO -->
+<div class="row g-3 mb-4">
+
+    <!-- TOP 5 PRODUTOS -->
+    <div class="col-md-6">
+        <div class="card card-apple h-100">
+            <h6 class="fw-bold mb-3">🏆 Top 5 Produtos Mais Vendidos</h6>
+            <table class="table table-sm align-middle">
+                <thead><tr class="text-muted small"><th>PRODUTO</th><th class="text-center">QTD</th><th class="text-end">RECEITA</th></tr></thead>
+                <tbody>
+                    {% for p in top_produtos %}
+                    <tr>
+                        <td><strong>{{ p.produto__nome }}</strong><br><small class="text-muted">{{ p.produto__marca }}</small></td>
+                        <td class="text-center">{{ p.total_vendido }} un.</td>
+                        <td class="text-end fw-bold text-success">{{ p.receita|floatformat:2 }} Kz</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="3" class="text-muted small text-center">Sem dados.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- TOP FORNECEDORES -->
+    <div class="col-md-6">
+        <div class="card card-apple h-100">
+            <h6 class="fw-bold mb-3">🚚 Top Fornecedores por Valor Gasto</h6>
+            <table class="table table-sm align-middle">
+                <thead><tr class="text-muted small"><th>FORNECEDOR</th><th class="text-end">TOTAL GASTO</th></tr></thead>
+                <tbody>
+                    {% for f in top_fornecedores %}
+                    <tr>
+                        <td><strong>{{ f.fornecedor__nome|default:"—" }}</strong></td>
+                        <td class="text-end fw-bold text-danger">{{ f.total_gasto|floatformat:2 }} Kz</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="2" class="text-muted small text-center">Sem dados.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- PRODUTOS ESTAGNADOS -->
+{% if produtos_estagnados %}
+<div class="card card-apple" style="border-left: 4px solid #ffae42;">
+    <h6 class="fw-bold mb-3">⚠️ Produtos com Stock mas Nunca Vendidos</h6>
+    <table class="table table-sm align-middle">
+        <thead><tr class="text-muted small"><th>PRODUTO</th><th class="text-center">STOCK</th><th class="text-end">VALOR PARADO</th><th></th></tr></thead>
+        <tbody>
+            {% for p in produtos_estagnados %}
+            <tr>
+                <td><strong>{{ p.nome }}</strong><br><small class="text-muted">{{ p.marca }}</small></td>
+                <td class="text-center">{{ p.stock_actual }} un.</td>
+                <td class="text-end fw-bold text-warning">{{ p.valor_total_stock|floatformat:2 }} Kz</td>
+                <td class="text-end">
+                    <a href="{% url 'planeamento_compras' %}" class="btn btn-sm btn-outline-warning rounded-pill px-3" style="font-size:0.75rem;">
+                        <i class="bi bi-sliders me-1"></i> Ajustar
+                    </a>
                 </td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
 </div>
+{% endif %}
+
 {% endblock %}

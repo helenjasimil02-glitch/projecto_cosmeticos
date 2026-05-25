@@ -24,4 +24,8 @@ urlpatterns = [
     path('compras/nova/', views.add_compra, name='add_compra'),
     path('planeamento/ajuste/', views.ajuste_stock, name='ajuste_stock'),
     path('compras/', views.lista_compras, name='lista_compras'),
+    path('compras/exportar/', views.exportar_compras_csv, name='exportar_compras_csv'),
+    path('vendas/exportar/', views.exportar_vendas_csv, name='exportar_vendas_csv'),
+    path('extrato/exportar/', views.exportar_extrato_csv, name='exportar_extrato_csv'), 
+    path('relatorios/exportar/', views.exportar_relatorio_csv, name='exportar_relatorio_csv'),
     ]

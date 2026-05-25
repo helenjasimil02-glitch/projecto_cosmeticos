@@ -3,28 +3,72 @@
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2 class="fw-bold mb-0">Movimentações de Caixa 💰</h2>
+    <h1 class="fw-bold mb-0">Extrato de Caixa 💰</h1>
     <div class="d-flex gap-2">
+        <a href="{% url 'exportar_extrato_csv' %}" class="btn btn-outline-dark rounded-pill px-4">
+            <i class="bi bi-download me-1"></i> Exportar CSV
+        </a>
         <a href="{% url 'add_receita' %}" class="btn btn-success rounded-pill px-4 fw-bold">+ Receita Extra</a>
-        <a href="{% url 'add_despesa' %}" class="btn btn-danger rounded-pill px-4 fw-bold">+ Nova Despesa</a>
+        <a href="{% url 'add_despesa' %}" class="btn btn-danger rounded-pill px-4 fw-bold">+ Despesa</a>
     </div>
+</div>
+
+<!-- FILTROS -->
+<div class="card card-apple mb-4">
+    <form method="GET" class="row g-3 align-items-end">
+        <div class="col-md-3">
+            <label class="small fw-bold text-muted text-uppercase">Tipo</label>
+            <select name="tipo" class="form-select border-0 bg-light rounded-4">
+                <option value="">Todos</option>
+                <option value="entrada" {% if request.GET.tipo == 'entrada' %}selected{% endif %}>Só Entradas</option>
+                <option value="saida" {% if request.GET.tipo == 'saida' %}selected{% endif %}>Só Saídas</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="small fw-bold text-muted text-uppercase">Data início</label>
+            <input type="date" name="data_inicio" value="{{ request.GET.data_inicio }}" class="form-control border-0 bg-light rounded-4">
+        </div>
+        <div class="col-md-3">
+            <label class="small fw-bold text-muted text-uppercase">Data fim</label>
+            <input type="date" name="data_fim" value="{{ request.GET.data_fim }}" class="form-control border-0 bg-light rounded-4">
+        </div>
+        <div class="col-md-3 d-flex gap-2">
+            <button type="submit" class="btn btn-dark rounded-pill px-4 w-100">🔍 Filtrar</button>
+            <a href="{% url 'extrato_caixa' %}" class="btn btn-outline-secondary rounded-pill px-3">✕</a>
+        </div>
+    </form>
 </div>
 
 <!-- CARDS DE RESUMO -->
 <div class="row mb-4 g-3">
-    <div class="col-md-4"><div class="card card-apple p-3 border-start border-success border-4 text-center"><small class="text-muted fw-bold">TOTAL ENTRADAS</small><div class="h5 fw-bold text-success">{{ total_entradas|floatformat:2 }} Kz</div></div></div>
-    <div class="col-md-4"><div class="card card-apple p-3 border-start border-danger border-4 text-center"><small class="text-muted fw-bold">TOTAL SAÍDAS</small><div class="h5 fw-bold text-danger">{{ total_saidas|floatformat:2 }} Kz</div></div></div>
-    <div class="col-md-4"><div class="card card-apple p-3 border-start border-primary border-4 text-center bg-primary-subtle"><small class="text-primary fw-bold">SALDO EM CAIXA</small><div class="h4 fw-bold text-primary">{{ saldo_final|floatformat:2 }} Kz</div></div></div>
+    <div class="col-md-4">
+        <div class="card card-apple p-3 border-start border-success border-4 text-center">
+            <small class="text-muted fw-bold">TOTAL ENTRADAS</small>
+            <div class="h5 fw-bold text-success">{{ total_entradas|floatformat:2 }} Kz</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card card-apple p-3 border-start border-danger border-4 text-center">
+            <small class="text-muted fw-bold">TOTAL SAÍDAS</small>
+            <div class="h5 fw-bold text-danger">{{ total_saidas|floatformat:2 }} Kz</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card card-apple p-3 border-start border-primary border-4 text-center bg-primary-subtle">
+            <small class="text-primary fw-bold">SALDO EM CAIXA</small>
+            <div class="h4 fw-bold text-primary">{{ saldo_final|floatformat:2 }} Kz</div>
+        </div>
+    </div>
 </div>
 
-<!-- TABELA FINAL -->
+<!-- TABELA -->
 <div class="card card-apple border-0 shadow-sm p-4">
     <table class="table table-hover align-middle">
         <thead>
             <tr class="text-muted small">
                 <th>ID</th>
                 <th>DATA</th>
-                <th>OPERAÇÃO / DESCRIÇÃO</th>
+                <th>DESCRIÇÃO</th>
                 <th class="text-center">TIPO</th>
                 <th class="text-end">VALOR</th>
             </tr>
@@ -44,8 +88,42 @@
                     {% if m.tipo == 'Entrada' %}+{% else %}-{% endif %} {{ m.valor|floatformat:2 }} Kz
                 </td>
             </tr>
+            {% empty %}
+            <tr><td colspan="5" class="text-center py-4 text-muted">Nenhum movimento encontrado.</td></tr>
             {% endfor %}
         </tbody>
     </table>
+
+    {% if movimentacoes %}
+    <div class="border-top pt-3 text-muted small">
+        {{ movimentacoes|length }} movimento{{ movimentacoes|length|pluralize:"s" }} encontrado{{ movimentacoes|length|pluralize:"s" }}
+    </div>
+    {% endif %}
+    <!-- PAGINAÇÃO -->
+{% if movimentacoes.has_other_pages %}
+<div class="d-flex justify-content-center mt-4">
+    <nav>
+        <ul class="pagination rounded-pill">
+            {% if movimentacoes.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ movimentacoes.previous_page_number }}&tipo={{ request.GET.tipo }}&data_inicio={{ request.GET.data_inicio }}&data_fim={{ request.GET.data_fim }}">‹</a>
+            </li>
+            {% endif %}
+
+            {% for num in movimentacoes.paginator.page_range %}
+            <li class="page-item {% if movimentacoes.number == num %}active{% endif %}">
+                <a class="page-link" href="?page={{ num }}&tipo={{ request.GET.tipo }}&data_inicio={{ request.GET.data_inicio }}&data_fim={{ request.GET.data_fim }}">{{ num }}</a>
+            </li>
+            {% endfor %}
+
+            {% if movimentacoes.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ movimentacoes.next_page_number }}&tipo={{ request.GET.tipo }}&data_inicio={{ request.GET.data_inicio }}&data_fim={{ request.GET.data_fim }}">›</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+</div>
+{% endif %}
 </div>
 {% endblock %}

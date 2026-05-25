@@ -1,6 +1,12 @@
 {% extends 'base.html' %}
+{% block page_title %}Histórico de Vendas{% endblock %}
 {% block content %}
-<h1 class="fw-bold mb-4">Histórico de Vendas 🧾</h1>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="fw-bold mb-0">Histórico de Vendas 🧾</h1>
+    <a href="{% url 'exportar_vendas_csv' %}" class="btn btn-outline-dark rounded-pill px-4">
+        <i class="bi bi-download me-1"></i> Exportar CSV
+    </a>
+</div>
 <div class="card card-apple">
     <table class="table table-hover">
         <thead>

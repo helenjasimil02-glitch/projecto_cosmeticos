@@ -19,7 +19,17 @@
     <div class="col"><div class="card p-2 border-0 shadow-sm rounded-4 text-center bg-dark text-white"><small class="fw-bold text-warning" style="font-size:0.6rem;">CAPITAL GIRO</small><div class="fw-bold small">{{ capital_giro|floatformat:0 }} Kz</div></div></div>
 </div>
 
-<!-- GRÁFICO ABC -->
+<!-- GRÁFICO VENDAS 7 DIAS -->
+<div class="row g-3 mb-3">
+    <div class="col-12">
+        <div class="card p-3 border-0 shadow-sm rounded-4">
+            <h6 class="fw-bold small mb-3">Vendas dos Últimos 7 Dias 📊</h6>
+            <canvas id="graficoVendas" style="max-height: 160px;"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- GRÁFICO ABC + ALERTAS STOCK -->
 <div class="row g-3">
     <div class="col-md-5">
         <div class="card p-3 border-0 shadow-sm rounded-4 h-100">
@@ -44,7 +54,7 @@
     </div>
 </div>
 
-<!-- ALERTAS DE VALIDADE (FEFO) NO FUNDO -->
+<!-- ALERTAS DE VALIDADE (FEFO) -->
 <div class="row g-3 mt-1">
     <div class="col-12">
         <div class="card p-3 border-0 shadow-sm rounded-4">
@@ -69,6 +79,27 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
+    new Chart(document.getElementById('graficoVendas'), {
+        type: 'bar',
+        data: {
+            labels: {{ dias_semana|safe }},
+            datasets: [{
+                label: 'Vendas (Kz)',
+                data: {{ vendas_diarias|safe }},
+                backgroundColor: '#d81b60',
+                borderRadius: 8,
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { beginAtZero: true, ticks: { font: { size: 10 } } },
+                x: { ticks: { font: { size: 10 } } }
+            }
+        }
+    });
+
     new Chart(document.getElementById('graficoABC'), {
         type: 'doughnut',
         data: {
