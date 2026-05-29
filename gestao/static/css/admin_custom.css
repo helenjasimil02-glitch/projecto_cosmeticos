@@ -1,0 +1,36 @@
+/* FORÇAR TEMA CLARO — sobrescreve data-bs-theme=dark */
+[data-bs-theme=dark] {
+    --bs-body-bg: #f5f5f7 !important;
+    --bs-body-bg-rgb: 245, 245, 247 !important;
+    --bs-body-color: #333333 !important;
+    --bs-secondary-bg: #ffffff !important;
+    --bs-tertiary-bg: #f8f9fa !important;
+    color-scheme: light !important;
+}
+
+/* NAVBAR COM GRADIENTE DA MARCA */
+.navbar {
+    background: linear-gradient(135deg, #4b0082, #d81b60) !important;
+}
+.navbar .nav-link,
+.navbar .brand-text,
+.navbar-text {
+    color: #ffffff !important;
+}
+
+/* SIDEBAR */
+.sidebar, .main-sidebar {
+    background-color: #ffffff !important;
+}
+.nav-sidebar .nav-link p { color: #333 !important; }
+.nav-sidebar .nav-link.active { background-color: #4b0082 !important; }
+.nav-sidebar .nav-link.active p { color: #fff !important; }
+
+/* BOTÕES */
+.btn-success {
+    background-color: #d81b60 !important;
+    border-color: #d81b60 !important;
+    color: #fff !important;
+}
+.wrapper { background-color: #f5f5f7 !important; }
+.content-wrapper { background-color: #f5f5f7 !important; }

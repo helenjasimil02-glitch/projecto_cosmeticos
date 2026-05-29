@@ -1,0 +1,68 @@
+{% extends "admin/base.html" %}
+{% load static %}
+
+{% block title %}Universo de Beleza — Gestão Técnica{% endblock %}
+
+{% block branding %}
+<h1 id="site-name">
+    <a href="{% url 'admin:index' %}">
+        <img src="{% static 'img/logo.jpg' %}" alt="Logo" style="height:40px; margin-right:10px; vertical-align:middle;">
+        Universo de Beleza
+    </a>
+</h1>
+{% endblock %}
+
+{% block extrastyle %}
+<style>
+    /* NAVBAR */
+    #header {
+        background: linear-gradient(135deg, #4b0082, #d81b60) !important;
+        color: white !important;
+    }
+    #site-name a { color: white !important; font-weight: 600; }
+    #user-tools a, #user-tools { color: white !important; }
+
+    /* FUNDO */
+    body { background-color: #f5f5f7 !important; font-family: 'Inter', sans-serif; }
+
+    /* MÓDULOS */
+    .module h2, .module caption {
+        background: linear-gradient(135deg, #4b0082, #d81b60) !important;
+        color: white !important;
+    }
+
+    /* BOTÕES */
+    .button, input[type=submit], input[type=button], .submit-row input, a.button {
+        background: #d81b60 !important;
+        border: none !important;
+        color: white !important;
+        border-radius: 20px !important;
+        padding: 8px 20px !important;
+    }
+    .button:hover, input[type=submit]:hover {
+        background: #4b0082 !important;
+    }
+
+    /* LINKS */
+    a:link, a:visited { color: #4b0082 !important; }
+    a:hover { color: #d81b60 !important; }
+
+    /* BREADCRUMB */
+    div.breadcrumbs {
+        background: #f0e6ff !important;
+        color: #4b0082 !important;
+    }
+    div.breadcrumbs a { color: #4b0082 !important; }
+
+    /* TABELA */
+    #result_list thead th {
+        background: #4b0082 !important;
+        color: white !important;
+    }
+    tr.row1 { background: #ffffff !important; }
+    tr.row2 { background: #faf5ff !important; }
+
+    /* SIDEBAR */
+    #nav-sidebar { background: #ffffff !important; border-right: 1px solid #e0d0f0; }
+</style>
+{% endblock %}

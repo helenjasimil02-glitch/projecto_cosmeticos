@@ -31,14 +31,13 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
-    'jazzmin',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-     'gestao', 
+    'gestao', 
 ]
 
 MIDDLEWARE = [
@@ -56,7 +55,7 @@ ROOT_URLCONF = 'core.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'gestao' / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -122,62 +121,10 @@ USE_TZ = False
 
 STATIC_URL = 'static/'
 
+# --- ALTERAÇÃO AQUI: Linha adicionada para corrigir o erro do collectstatic ---
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+# ------------------------------------------------------------------------------
+
 LOGIN_URL = 'login'            # Esta é a que impede o erro 404 de aparecer
 LOGIN_REDIRECT_URL = '/'       # Esta diz: "Depois de entrar, vai para a home"
 LOGOUT_REDIRECT_URL = 'login'  # Esta diz: "Depois de sair, volta para o login"
-
-JAZZMIN_SETTINGS = {
-    "site_title": "Universo de Beleza",
-    "site_header": "Universo de Beleza",
-    "site_brand": "Universo de Beleza",
-    # Caminho para o teu logo (se já estiver na pasta static/img/logo.jpg)
-    "site_logo": "img/logo.jpg", 
-    "welcome_sign": "Bem-vinda à Gestão Técnica da Universo de Beleza",
-    "copyright": "Universo de Beleza Lda",
-    "search_model": ["gestao.Produto"],
-    "topmenu_links": [
-        {"name": "Ir para o Site Rosa", "url": "/", "new_window": False},
-    ],
-    "show_sidebar": True,
-    "navigation_expanded": True,
-    "icons": {
-        "auth.user": "fas fa-user",
-        "gestao.Produto": "fas fa-box",
-        "gestao.Venda": "fas fa-shopping-cart",
-        "gestao.Compra": "fas fa-truck-loading",
-        "gestao.Despesa": "fas fa-money-bill-wave",
-    },
-}
-
-# Cores Apple Clean / Universo de Beleza
-JAZZMIN_UI_TWEAKS = {
-    "navbar_small_text": False,
-    "footer_small_text": False,
-    "body_small_text": False,
-    "brand_small_text": False,
-    "brand_colour": "navbar-pink",
-    "accent": "accent-pink",
-    "navbar": "navbar-white navbar-light",
-    "no_navbar_border": False,
-    "navbar_fixed": True,
-    "layout_boxed": False,
-    "footer_fixed": False,
-    "sidebar_fixed": True,
-    "sidebar": "sidebar-light-pink",
-    "sidebar_nav_small_text": False,
-    "sidebar_disable_expand": False,
-    "sidebar_nav_child_indent": False,
-    "sidebar_nav_compact_pro": False,
-    "sidebar_nav_legacy_style": False,
-    "sidebar_nav_flat_style": False,
-    "theme": "flatly",
-    "dark_mode_theme": None,
-    "button_classes": {
-        "primary": "btn-primary",
-        "secondary": "btn-secondary",
-        "info": "btn-info",
-        "warning": "btn-warning",
-        "danger": "btn-danger",
-        "success": "btn-success",
-    },
-}

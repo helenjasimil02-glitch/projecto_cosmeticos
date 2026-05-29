@@ -25,8 +25,6 @@ class Produto(models.Model):
     
     def __str__(self): return f"{self.nome} - {self.marca}"
 
-    # --- FUNÇÕES DE INTELIGÊNCIA ---
-    
     def margem_lucro(self):
         if self.preco_custo and self.preco_custo > 0:
             lucro = self.preco_venda - self.preco_custo
@@ -46,18 +44,14 @@ class Produto(models.Model):
     def status_giro(self):
         vendas_count = self.itemvenda_set.count()
         ultima_compra = self.itemcompra_set.order_by('-compra__data').first()
-        
         if vendas_count > 10: return "Rápido ⚡"
         if vendas_count > 0: return "Normal"
-        
         if ultima_compra:
             from django.utils import timezone
             dias_na_loja = (timezone.now() - ultima_compra.compra.data).days
             if dias_na_loja <= 7: return "Novo / Recente ✨"
-            
         return "Estagnado ⚠️"
 
-    # --- VALIDAÇÕES ---
     def clean(self):
         from django.core.exceptions import ValidationError
         if self.preco_venda is not None:
@@ -65,8 +59,6 @@ class Produto(models.Model):
                 raise ValidationError({'preco_venda': f"O preço de venda não pode ser menor que o custo ({self.preco_custo} Kz)!"})
 
     def save(self, *args, **kwargs):
-        # skip_clean=True é usado pelos signals internos para evitar
-        # que a validação de preço bloqueie atualizações automáticas de stock
         skip_clean = kwargs.pop('skip_clean', False)
         if not skip_clean:
             self.full_clean()
@@ -81,6 +73,9 @@ class Compra(models.Model):
     data = models.DateTimeField(auto_now_add=True)
     fornecedor = models.ForeignKey(Fornecedor, on_delete=models.SET_NULL, null=True)
     valor_total = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    def __str__(self):
+        data_fmt = self.data.strftime('%d/%m/%Y') if self.data else ''
+        return f"Compra #{self.id} — {self.fornecedor} ({data_fmt})"
     class Meta: verbose_name_plural = "4. Compras"
 
 class ItemCompra(models.Model):
@@ -90,6 +85,7 @@ class ItemCompra(models.Model):
     preco_custo = models.DecimalField(max_digits=15, decimal_places=2)
     validade = models.DateField()
     lote = models.CharField(max_length=50, blank=True, null=True)
+    def __str__(self): return f"{self.produto.nome} × {self.quantidade} un."
 
 class Venda(models.Model):
     METODOS_PAGAMENTO = [('DIN', 'Dinheiro'), ('TPA', 'TPA'), ('TRANS', 'Transferência')]
@@ -97,6 +93,7 @@ class Venda(models.Model):
     utilizador = models.ForeignKey(User, on_delete=models.PROTECT)
     valor_total = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     metodo_pagamento = models.CharField(max_length=10, choices=METODOS_PAGAMENTO)
+    def __str__(self): return f"Venda #{self.id} — {self.valor_total} Kz"
     class Meta: verbose_name_plural = "5. Vendas"
 
 class ItemVenda(models.Model):
@@ -105,16 +102,19 @@ class ItemVenda(models.Model):
     quantidade = models.IntegerField()
     preco_unitario = models.DecimalField(max_digits=10, decimal_places=2)
     def total_item(self): return self.quantidade * self.preco_unitario
+    def __str__(self): return f"{self.produto.nome} × {self.quantidade} un."
 
 # --- 4. FINANCEIRO ---
 class Despesa(models.Model):
     descricao = models.CharField(max_length=255)
     valor = models.DecimalField(max_digits=10, decimal_places=2)
     data = models.DateField()
+    def __str__(self): return f"{self.descricao} — {self.valor} Kz"
     class Meta: verbose_name_plural = "6. Despesas"
 
 class ReceitaExtra(models.Model):
     descricao = models.CharField(max_length=255)
     valor = models.DecimalField(max_digits=10, decimal_places=2)
     data = models.DateField()
+    def __str__(self): return f"{self.descricao} — {self.valor} Kz"
     class Meta: verbose_name_plural = "7. Receitas Extras"
