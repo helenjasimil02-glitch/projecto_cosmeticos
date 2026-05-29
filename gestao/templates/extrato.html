@@ -8,6 +8,12 @@
         <a href="{% url 'exportar_extrato_csv' %}" class="btn btn-outline-dark rounded-pill px-4">
             <i class="bi bi-download me-1"></i> Exportar CSV
         </a>
+        <a href="{% url 'exportar_extrato_pdf' %}" class="btn btn-outline-danger rounded-pill px-4">
+            <i class="bi bi-file-pdf me-1"></i> PDF
+        </a>
+        <a href="{% url 'exportar_extrato_word' %}" class="btn btn-outline-primary rounded-pill px-4">
+            <i class="bi bi-file-word me-1"></i> Word
+        </a>
         <a href="{% url 'add_receita' %}" class="btn btn-success rounded-pill px-4 fw-bold">+ Receita Extra</a>
         <a href="{% url 'add_despesa' %}" class="btn btn-danger rounded-pill px-4 fw-bold">+ Despesa</a>
     </div>

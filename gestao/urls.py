@@ -28,4 +28,12 @@ urlpatterns = [
     path('vendas/exportar/', views.exportar_vendas_csv, name='exportar_vendas_csv'),
     path('extrato/exportar/', views.exportar_extrato_csv, name='exportar_extrato_csv'), 
     path('relatorios/exportar/', views.exportar_relatorio_csv, name='exportar_relatorio_csv'),
+    path('vendas/exportar/pdf/', views.exportar_vendas_pdf, name='exportar_vendas_pdf'),
+    path('compras/exportar/pdf/', views.exportar_compras_pdf, name='exportar_compras_pdf'),
+    path('extrato/exportar/pdf/', views.exportar_extrato_pdf, name='exportar_extrato_pdf'),
+    path('relatorios/exportar/pdf/', views.exportar_relatorio_pdf, name='exportar_relatorio_pdf'),
+    path('vendas/exportar/word/', views.exportar_vendas_word, name='exportar_vendas_word'),
+    path('compras/exportar/word/', views.exportar_compras_word, name='exportar_compras_word'),
+    path('extrato/exportar/word/', views.exportar_extrato_word, name='exportar_extrato_word'),
+    path('relatorios/exportar/word/', views.exportar_relatorio_word, name='exportar_relatorio_word'),
     ]

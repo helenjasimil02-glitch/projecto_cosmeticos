@@ -175,10 +175,10 @@ def extrato_caixa(request):
     page = paginator.get_page(request.GET.get('page'))
 
     return render(request, 'extrato.html', {
-        'movimentacoes': movimentacoes,
-        'saldo_final': t_e - t_s,
-        'total_entradas': t_e,
-        'total_saidas': t_s,
+    'movimentacoes': page,
+    'saldo_final': t_e - t_s,
+    'total_entradas': t_e,
+    'total_saidas': t_s,
     })
 
 @login_required
@@ -659,4 +659,325 @@ def exportar_relatorio_csv(request):
         margem = (lucro / receitas * 100) if receitas > 0 else 0
         writer.writerow([d_mes.strftime('%B %Y'), receitas, custos, lucro, f"{margem:.1f}"])
 
+    return response
+
+from reportlab.lib.pagesizes import A4
+from reportlab.lib import colors
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import cm
+from docx import Document
+from docx.shared import Pt, RGBColor
+import io
+
+# ─── HELPERS ──────────────────────────────────────────────────────────────
+
+def pdf_response(filename):
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+def word_response(filename):
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+def estilo_tabela_pdf():
+    return TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#4b0082')),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0,0), (-1,0), 9),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#faf5ff')]),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e0d0f0')),
+        ('FONTSIZE', (0,1), (-1,-1), 8),
+        ('TOPPADDING', (0,0), (-1,-1), 6),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 6),
+    ])
+
+def cabecalho_word(doc, titulo):
+    from docx.shared import Pt, RGBColor
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+    p = doc.add_heading(titulo, 0)
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = p.runs[0]
+    run.font.color.rgb = RGBColor(0x4b, 0x00, 0x82)
+    doc.add_paragraph(f"Universo de Beleza — Exportado em {timezone.now().strftime('%d/%m/%Y %H:%M')}")
+    doc.add_paragraph()
+
+# ─── VENDAS PDF ───────────────────────────────────────────────────────────
+
+@login_required
+def exportar_vendas_pdf(request):
+    response = pdf_response('historico_vendas.pdf')
+    doc = SimpleDocTemplate(response, pagesize=A4, topMargin=2*cm, bottomMargin=2*cm)
+    styles = getSampleStyleSheet()
+    elementos = []
+
+    elementos.append(Paragraph('Histórico de Vendas', styles['Title']))
+    elementos.append(Paragraph(f'Universo de Beleza — {timezone.now().strftime("%d/%m/%Y %H:%M")}', styles['Normal']))
+    elementos.append(Spacer(1, 0.5*cm))
+
+    dados = [['ID', 'Data', 'Utilizador', 'Método', 'Total (Kz)']]
+    for v in Venda.objects.all().order_by('-data'):
+        dados.append([
+            f'#{v.id}',
+            v.data.strftime('%d/%m/%Y %H:%M'),
+            v.utilizador.username,
+            v.get_metodo_pagamento_display(),
+            f'{v.valor_total:,.2f}',
+        ])
+
+    tabela = Table(dados, colWidths=[2*cm, 4*cm, 3*cm, 3*cm, 4*cm])
+    tabela.setStyle(estilo_tabela_pdf())
+    elementos.append(tabela)
+    doc.build(elementos)
+    return response
+
+# ─── VENDAS WORD ──────────────────────────────────────────────────────────
+
+@login_required
+def exportar_vendas_word(request):
+    doc = Document()
+    cabecalho_word(doc, 'Histórico de Vendas')
+    tabela = doc.add_table(rows=1, cols=5)
+    tabela.style = 'Table Grid'
+    cabecalhos = ['ID', 'Data', 'Utilizador', 'Método', 'Total (Kz)']
+    for i, h in enumerate(cabecalhos):
+        cell = tabela.rows[0].cells[i]
+        cell.text = h
+        cell.paragraphs[0].runs[0].bold = True
+
+    for v in Venda.objects.all().order_by('-data'):
+        row = tabela.add_row().cells
+        row[0].text = f'#{v.id}'
+        row[1].text = v.data.strftime('%d/%m/%Y %H:%M')
+        row[2].text = v.utilizador.username
+        row[3].text = v.get_metodo_pagamento_display()
+        row[4].text = f'{v.valor_total:,.2f} Kz'
+
+    buffer = io.BytesIO()
+    doc.save(buffer)
+    buffer.seek(0)
+    response = word_response('historico_vendas.docx')
+    response.write(buffer.read())
+    return response
+
+# ─── COMPRAS PDF ──────────────────────────────────────────────────────────
+
+@login_required
+def exportar_compras_pdf(request):
+    response = pdf_response('historico_compras.pdf')
+    doc = SimpleDocTemplate(response, pagesize=A4, topMargin=2*cm, bottomMargin=2*cm)
+    styles = getSampleStyleSheet()
+    elementos = []
+
+    elementos.append(Paragraph('Histórico de Compras', styles['Title']))
+    elementos.append(Paragraph(f'Universo de Beleza — {timezone.now().strftime("%d/%m/%Y %H:%M")}', styles['Normal']))
+    elementos.append(Spacer(1, 0.5*cm))
+
+    dados = [['ID', 'Data', 'Fornecedor', 'Produto', 'Qtd', 'Custo Unit.', 'Validade']]
+    for c in Compra.objects.all().order_by('-data'):
+        for item in c.itens.all():
+            dados.append([
+                f'#{c.id}',
+                c.data.strftime('%d/%m/%Y'),
+                c.fornecedor.nome if c.fornecedor else '—',
+                item.produto.nome,
+                str(item.quantidade),
+                f'{item.preco_custo:,.2f}',
+                item.validade.strftime('%d/%m/%Y'),
+            ])
+
+    tabela = Table(dados, colWidths=[1.5*cm, 2.5*cm, 3*cm, 3.5*cm, 1.5*cm, 2.5*cm, 2.5*cm])
+    tabela.setStyle(estilo_tabela_pdf())
+    elementos.append(tabela)
+    doc.build(elementos)
+    return response
+
+# ─── COMPRAS WORD ─────────────────────────────────────────────────────────
+
+@login_required
+def exportar_compras_word(request):
+    doc = Document()
+    cabecalho_word(doc, 'Histórico de Compras')
+    tabela = doc.add_table(rows=1, cols=7)
+    tabela.style = 'Table Grid'
+    cabecalhos = ['ID', 'Data', 'Fornecedor', 'Produto', 'Qtd', 'Custo Unit.', 'Validade']
+    for i, h in enumerate(cabecalhos):
+        cell = tabela.rows[0].cells[i]
+        cell.text = h
+        cell.paragraphs[0].runs[0].bold = True
+
+    for c in Compra.objects.all().order_by('-data'):
+        for item in c.itens.all():
+            row = tabela.add_row().cells
+            row[0].text = f'#{c.id}'
+            row[1].text = c.data.strftime('%d/%m/%Y')
+            row[2].text = c.fornecedor.nome if c.fornecedor else '—'
+            row[3].text = item.produto.nome
+            row[4].text = str(item.quantidade)
+            row[5].text = f'{item.preco_custo:,.2f} Kz'
+            row[6].text = item.validade.strftime('%d/%m/%Y')
+
+    buffer = io.BytesIO()
+    doc.save(buffer)
+    buffer.seek(0)
+    response = word_response('historico_compras.docx')
+    response.write(buffer.read())
+    return response
+
+# ─── EXTRATO PDF ──────────────────────────────────────────────────────────
+
+@login_required
+def exportar_extrato_pdf(request):
+    response = pdf_response('extrato_caixa.pdf')
+    doc = SimpleDocTemplate(response, pagesize=A4, topMargin=2*cm, bottomMargin=2*cm)
+    styles = getSampleStyleSheet()
+    elementos = []
+
+    elementos.append(Paragraph('Extrato de Caixa', styles['Title']))
+    elementos.append(Paragraph(f'Universo de Beleza — {timezone.now().strftime("%d/%m/%Y %H:%M")}', styles['Normal']))
+    elementos.append(Spacer(1, 0.5*cm))
+
+    movs = []
+    for v in Venda.objects.all(): movs.append({'data': v.data.date(), 'desc': 'Venda', 'tipo': 'Entrada', 'valor': float(v.valor_total)})
+    for e in ReceitaExtra.objects.all(): movs.append({'data': e.data, 'desc': e.descricao, 'tipo': 'Entrada', 'valor': float(e.valor)})
+    for d in Despesa.objects.all(): movs.append({'data': d.data, 'desc': d.descricao, 'tipo': 'Saída', 'valor': float(d.valor)})
+    for c in Compra.objects.all(): movs.append({'data': c.data.date(), 'desc': 'Compra', 'tipo': 'Saída', 'valor': float(c.valor_total)})
+    movs = sorted(movs, key=lambda x: x['data'], reverse=True)
+
+    dados = [['Data', 'Descrição', 'Tipo', 'Valor (Kz)']]
+    for m in movs:
+        dados.append([
+            m['data'].strftime('%d/%m/%Y'),
+            m['desc'],
+            m['tipo'],
+            f'{m["valor"]:,.2f}',
+        ])
+
+    tabela = Table(dados, colWidths=[3*cm, 7*cm, 3*cm, 4*cm])
+    tabela.setStyle(estilo_tabela_pdf())
+    elementos.append(tabela)
+    doc.build(elementos)
+    return response
+
+# ─── EXTRATO WORD ─────────────────────────────────────────────────────────
+
+@login_required
+def exportar_extrato_word(request):
+    doc = Document()
+    cabecalho_word(doc, 'Extrato de Caixa')
+    tabela = doc.add_table(rows=1, cols=4)
+    tabela.style = 'Table Grid'
+    for i, h in enumerate(['Data', 'Descrição', 'Tipo', 'Valor (Kz)']):
+        cell = tabela.rows[0].cells[i]
+        cell.text = h
+        cell.paragraphs[0].runs[0].bold = True
+
+    movs = []
+    for v in Venda.objects.all(): movs.append({'data': v.data.date(), 'desc': 'Venda', 'tipo': 'Entrada', 'valor': float(v.valor_total)})
+    for e in ReceitaExtra.objects.all(): movs.append({'data': e.data, 'desc': e.descricao, 'tipo': 'Entrada', 'valor': float(e.valor)})
+    for d in Despesa.objects.all(): movs.append({'data': d.data, 'desc': d.descricao, 'tipo': 'Saída', 'valor': float(d.valor)})
+    for c in Compra.objects.all(): movs.append({'data': c.data.date(), 'desc': 'Compra', 'tipo': 'Saída', 'valor': float(c.valor_total)})
+    movs = sorted(movs, key=lambda x: x['data'], reverse=True)
+
+    for m in movs:
+        row = tabela.add_row().cells
+        row[0].text = m['data'].strftime('%d/%m/%Y')
+        row[1].text = m['desc']
+        row[2].text = m['tipo']
+        row[3].text = f'{m["valor"]:,.2f} Kz'
+
+    buffer = io.BytesIO()
+    doc.save(buffer)
+    buffer.seek(0)
+    response = word_response('extrato_caixa.docx')
+    response.write(buffer.read())
+    return response
+
+# ─── RELATÓRIOS PDF ───────────────────────────────────────────────────────
+
+@login_required
+def exportar_relatorio_pdf(request):
+    response = pdf_response('relatorios_mensais.pdf')
+    doc = SimpleDocTemplate(response, pagesize=A4, topMargin=2*cm, bottomMargin=2*cm)
+    styles = getSampleStyleSheet()
+    elementos = []
+
+    elementos.append(Paragraph('Relatórios Mensais', styles['Title']))
+    elementos.append(Paragraph(f'Universo de Beleza — {timezone.now().strftime("%d/%m/%Y %H:%M")}', styles['Normal']))
+    elementos.append(Spacer(1, 0.5*cm))
+
+    meses_vendas = set(Venda.objects.dates('data', 'month'))
+    meses_despesas = set(Despesa.objects.dates('data', 'month'))
+    meses_compras = set(Compra.objects.dates('data', 'month'))
+    meses_extras = set(ReceitaExtra.objects.dates('data', 'month'))
+    todos_meses = sorted(meses_vendas | meses_despesas | meses_compras | meses_extras, reverse=True)
+
+    dados = [['Mês / Ano', 'Receitas (Kz)', 'Custos (Kz)', 'Resultado (Kz)', 'Margem %']]
+    for d_mes in todos_meses:
+        v = float(Venda.objects.filter(data__month=d_mes.month, data__year=d_mes.year).aggregate(Sum('valor_total'))['valor_total__sum'] or 0)
+        e = float(ReceitaExtra.objects.filter(data__month=d_mes.month, data__year=d_mes.year).aggregate(Sum('valor'))['valor__sum'] or 0)
+        d = float(Despesa.objects.filter(data__month=d_mes.month, data__year=d_mes.year).aggregate(Sum('valor'))['valor__sum'] or 0)
+        c = float(Compra.objects.filter(data__month=d_mes.month, data__year=d_mes.year).aggregate(Sum('valor_total'))['valor_total__sum'] or 0)
+        receitas = v + e
+        custos = d + c
+        lucro = receitas - custos
+        margem = (lucro / receitas * 100) if receitas > 0 else 0
+        dados.append([
+            d_mes.strftime('%B %Y').upper(),
+            f'{receitas:,.2f}',
+            f'{custos:,.2f}',
+            f'{lucro:,.2f}',
+            f'{margem:.1f}%',
+        ])
+
+    tabela = Table(dados, colWidths=[4*cm, 3.5*cm, 3.5*cm, 3.5*cm, 2.5*cm])
+    tabela.setStyle(estilo_tabela_pdf())
+    elementos.append(tabela)
+    doc.build(elementos)
+    return response
+
+# ─── RELATÓRIOS WORD ──────────────────────────────────────────────────────
+
+@login_required
+def exportar_relatorio_word(request):
+    doc = Document()
+    cabecalho_word(doc, 'Relatórios Mensais')
+    tabela = doc.add_table(rows=1, cols=5)
+    tabela.style = 'Table Grid'
+    for i, h in enumerate(['Mês / Ano', 'Receitas (Kz)', 'Custos (Kz)', 'Resultado (Kz)', 'Margem %']):
+        cell = tabela.rows[0].cells[i]
+        cell.text = h
+        cell.paragraphs[0].runs[0].bold = True
+
+    meses_vendas = set(Venda.objects.dates('data', 'month'))
+    meses_despesas = set(Despesa.objects.dates('data', 'month'))
+    meses_compras = set(Compra.objects.dates('data', 'month'))
+    meses_extras = set(ReceitaExtra.objects.dates('data', 'month'))
+    todos_meses = sorted(meses_vendas | meses_despesas | meses_compras | meses_extras, reverse=True)
+
+    for d_mes in todos_meses:
+        v = float(Venda.objects.filter(data__month=d_mes.month, data__year=d_mes.year).aggregate(Sum('valor_total'))['valor_total__sum'] or 0)
+        e = float(ReceitaExtra.objects.filter(data__month=d_mes.month, data__year=d_mes.year).aggregate(Sum('valor'))['valor__sum'] or 0)
+        d = float(Despesa.objects.filter(data__month=d_mes.month, data__year=d_mes.year).aggregate(Sum('valor'))['valor__sum'] or 0)
+        c = float(Compra.objects.filter(data__month=d_mes.month, data__year=d_mes.year).aggregate(Sum('valor_total'))['valor_total__sum'] or 0)
+        receitas = v + e
+        custos = d + c
+        lucro = receitas - custos
+        margem = (lucro / receitas * 100) if receitas > 0 else 0
+        row = tabela.add_row().cells
+        row[0].text = d_mes.strftime('%B %Y').upper()
+        row[1].text = f'{receitas:,.2f} Kz'
+        row[2].text = f'{custos:,.2f} Kz'
+        row[3].text = f'{lucro:,.2f} Kz'
+        row[4].text = f'{margem:.1f}%'
+
+    buffer = io.BytesIO()
+    doc.save(buffer)
+    buffer.seek(0)
+    response = word_response('relatorios_mensais.docx')
+    response.write(buffer.read())
     return response
