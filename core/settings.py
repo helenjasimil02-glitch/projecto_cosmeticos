@@ -49,19 +49,20 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'core.wsgi.application'
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'bd_cosmeticos',
-        'USER': 'root',
-        'PASSWORD': 'Root719!',
-        'HOST': '127.0.0.1',
-        'PORT': '3306',
-    }
-}
-
+import dj_database_url
 if os.environ.get('DATABASE_URL'):
-    DATABASES['default'] = dj_database_url.config(conn_max_age=600)
+    DATABASES = {'default': dj_database_url.config(conn_max_age=600)}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': 'bd_cosmeticos',
+            'USER': 'root',
+            'PASSWORD': 'Root719!',
+            'HOST': '127.0.0.1',
+            'PORT': '3306',
+        }
+    }
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
