@@ -42,6 +42,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware', 
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -128,3 +129,15 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 LOGIN_URL = 'login'            # Esta é a que impede o erro 404 de aparecer
 LOGIN_REDIRECT_URL = '/'       # Esta diz: "Depois de entrar, vai para a home"
 LOGOUT_REDIRECT_URL = 'login'  # Esta diz: "Depois de sair, volta para o login"
+
+# ─── PRODUÇÃO ─────────────────────────────────────────────────
+import dj_database_url
+import os
+
+# Ficheiros estáticos com whitenoise
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+# Base de dados de produção (Railway vai fornecer DATABASE_URL)
+if os.environ.get('DATABASE_URL'):
+    DATABASES['default'] = dj_database_url.config(conn_max_age=600)
