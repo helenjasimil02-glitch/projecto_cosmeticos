@@ -49,10 +49,19 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'core.wsgi.application'
 
+import os
 import dj_database_url
-if os.environ.get('DATABASE_URL'):
-    DATABASES = {'default': dj_database_url.config(conn_max_age=600)}
+
+# O Railway injeta 'MYSQL_URL'. Verificamos as duas opções por segurança:
+if os.environ.get('MYSQL_URL') or os.environ.get('DATABASE_URL'):
+    # Configuração para Produção (Railway)
+    # Usamos o link direto da variável disponível (dando prioridade à MYSQL_URL)
+    url_conexao = os.environ.get('MYSQL_URL') or os.environ.get('DATABASE_URL')
+    DATABASES = {
+        'default': dj_database_url.config(default=url_conexao, conn_max_age=600)
+    }
 else:
+    # Configuração Local (O teu computador)
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.mysql',
