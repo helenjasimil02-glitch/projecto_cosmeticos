@@ -142,44 +142,63 @@ def registrar_venda(request):
 
 @login_required
 def extrato_caixa(request):
-    # Filtros
     tipo_filtro = request.GET.get('tipo', '')
     data_inicio = request.GET.get('data_inicio', '')
     data_fim = request.GET.get('data_fim', '')
 
+    # Filtros aplicados directamente na BD em vez de em memória
+    filtro_data = {}
+    if data_inicio:
+        filtro_data['data_inicio'] = data_inicio
+    if data_fim:
+        filtro_data['data_fim'] = data_fim
+
     movs = []
 
     if not tipo_filtro or tipo_filtro == 'entrada':
-        for v in Venda.objects.all():
-            movs.append({'id': f"V-{v.id}", 'data': v.data.date(), 'raw_id': v.id, 'desc': "Venda", 'tipo': 'Entrada', 'valor': float(v.valor_total), 'cor': 'text-success'})
-        for e in ReceitaExtra.objects.all():
-            movs.append({'id': f"R-{e.id}", 'data': e.data, 'raw_id': e.id, 'desc': e.descricao, 'tipo': 'Entrada', 'valor': float(e.valor), 'cor': 'text-success'})
+        vendas_qs = Venda.objects.all()
+        extras_qs = ReceitaExtra.objects.all()
+        if data_inicio:
+            vendas_qs = vendas_qs.filter(data__date__gte=data_inicio)
+            extras_qs = extras_qs.filter(data__gte=data_inicio)
+        if data_fim:
+            vendas_qs = vendas_qs.filter(data__date__lte=data_fim)
+            extras_qs = extras_qs.filter(data__lte=data_fim)
+        for v in vendas_qs:
+            movs.append({'id': f"V-{v.id}", 'data': v.data.date(), 'raw_id': v.id,
+                'desc': "Venda", 'tipo': 'Entrada', 'valor': float(v.valor_total), 'cor': 'text-success'})
+        for e in extras_qs:
+            movs.append({'id': f"R-{e.id}", 'data': e.data, 'raw_id': e.id,
+                'desc': e.descricao, 'tipo': 'Entrada', 'valor': float(e.valor), 'cor': 'text-success'})
 
     if not tipo_filtro or tipo_filtro == 'saida':
-        for d in Despesa.objects.all():
-            movs.append({'id': f"D-{d.id}", 'data': d.data, 'raw_id': d.id, 'desc': d.descricao, 'tipo': 'Saída', 'valor': float(d.valor), 'cor': 'text-danger'})
-        for c in Compra.objects.all():
-            movs.append({'id': f"C-{c.id}", 'data': c.data.date(), 'raw_id': c.id, 'desc': "Compra", 'tipo': 'Saída', 'valor': float(c.valor_total), 'cor': 'text-danger'})
-
-    # Filtro por data
-    from datetime import date
-    if data_inicio:
-        movs = [m for m in movs if m['data'] >= date.fromisoformat(data_inicio)]
-    if data_fim:
-        movs = [m for m in movs if m['data'] <= date.fromisoformat(data_fim)]
+        despesas_qs = Despesa.objects.all()
+        compras_qs = Compra.objects.all()
+        if data_inicio:
+            despesas_qs = despesas_qs.filter(data__gte=data_inicio)
+            compras_qs = compras_qs.filter(data__date__gte=data_inicio)
+        if data_fim:
+            despesas_qs = despesas_qs.filter(data__lte=data_fim)
+            compras_qs = compras_qs.filter(data__date__lte=data_fim)
+        for d in despesas_qs:
+            movs.append({'id': f"D-{d.id}", 'data': d.data, 'raw_id': d.id,
+                'desc': d.descricao, 'tipo': 'Saída', 'valor': float(d.valor), 'cor': 'text-danger'})
+        for c in compras_qs:
+            movs.append({'id': f"C-{c.id}", 'data': c.data.date(), 'raw_id': c.id,
+                'desc': "Compra", 'tipo': 'Saída', 'valor': float(c.valor_total), 'cor': 'text-danger'})
 
     movimentacoes = sorted(movs, key=lambda x: (x['data'], x['raw_id']), reverse=True)
-
     t_e = sum(m['valor'] for m in movimentacoes if m['tipo'] == 'Entrada')
     t_s = sum(m['valor'] for m in movimentacoes if m['tipo'] == 'Saída')
+
     paginator = Paginator(movimentacoes, 25)
     page = paginator.get_page(request.GET.get('page'))
 
     return render(request, 'extrato.html', {
-    'movimentacoes': page,
-    'saldo_final': t_e - t_s,
-    'total_entradas': t_e,
-    'total_saidas': t_s,
+        'movimentacoes': page,
+        'saldo_final': t_e - t_s,
+        'total_entradas': t_e,
+        'total_saidas': t_s,
     })
 
 @login_required
@@ -199,17 +218,21 @@ def planeamento_compras(request):
 
 @login_required
 def relatorios(request):
-    ano_selecionado = request.GET.get('ano')
+    from collections import defaultdict
+    from datetime import date as date_type
+
+    tab = request.GET.get('tab', 'financeiro')
+
+    # ─── DADOS COMUNS ─────────────────────────────────────────
     anos_disponiveis = sorted(set(
         list(Venda.objects.dates('data', 'year').values_list('data__year', flat=True)) +
         list(Compra.objects.dates('data', 'year').values_list('data__year', flat=True))
     ), reverse=True)
+    fornecedores = Fornecedor.objects.all().order_by('nome')
 
+    # ─── TAB 1: RESUMO FINANCEIRO ─────────────────────────────
+    ano_selecionado = request.GET.get('ano')
     filtro_ano = {'data__year': ano_selecionado} if ano_selecionado else {}
-
-    # Uma query por modelo em vez de N queries dentro do loop
-    from django.db.models import Sum
-    from collections import defaultdict
 
     def agrupar_por_mes(qs, campo_data, campo_valor):
         resultado = defaultdict(Decimal)
@@ -222,7 +245,6 @@ def relatorios(request):
     extras_map = agrupar_por_mes(ReceitaExtra.objects.filter(**filtro_ano), 'data', 'valor')
     despesas_map = agrupar_por_mes(Despesa.objects.filter(**filtro_ano), 'data', 'valor')
     compras_map = agrupar_por_mes(Compra.objects.filter(**filtro_ano), 'data', 'valor_total')
-
     todos_meses = sorted(set(vendas_map) | set(extras_map) | set(despesas_map) | set(compras_map), reverse=True)
 
     relatorio_final = []
@@ -232,41 +254,116 @@ def relatorios(request):
         custos = float(despesas_map[chave] + compras_map[chave])
         lucro = receitas - custos
         margem = (lucro / receitas * 100) if receitas > 0 else 0
-        from datetime import date
-        relatorio_final.append({
-            'mes': date(ano, mes, 1),
-            'vendas': receitas, 'saidas': custos,
-            'lucro': lucro, 'margem': margem,
-        })
+        relatorio_final.append({'mes': date_type(ano, mes, 1), 'vendas': receitas, 'saidas': custos, 'lucro': lucro, 'margem': margem})
 
     total_receitas = sum(r['vendas'] for r in relatorio_final)
     total_custos = sum(r['saidas'] for r in relatorio_final)
     total_lucro = total_receitas - total_custos
     margem_media = (total_lucro / total_receitas * 100) if total_receitas > 0 else 0
 
+    # ─── TAB 2: VENDAS ────────────────────────────────────────
+    v_data_inicio = request.GET.get('v_data_inicio', '')
+    v_data_fim = request.GET.get('v_data_fim', '')
+    v_metodo = request.GET.get('v_metodo', '')
+
+    vendas_qs = Venda.objects.all()
+    if v_data_inicio:
+        vendas_qs = vendas_qs.filter(data__date__gte=v_data_inicio)
+    if v_data_fim:
+        vendas_qs = vendas_qs.filter(data__date__lte=v_data_fim)
+    if v_metodo:
+        vendas_qs = vendas_qs.filter(metodo_pagamento=v_metodo)
+
+    total_vendas_filtrado = vendas_qs.aggregate(Sum('valor_total'))['valor_total__sum'] or 0
+    num_vendas = vendas_qs.count()
+    ticket_medio = float(total_vendas_filtrado) / num_vendas if num_vendas > 0 else 0
+
     top_produtos = (
-        ItemVenda.objects
-        .filter(**({'venda__data__year': ano_selecionado} if ano_selecionado else {}))
+        ItemVenda.objects.filter(venda__in=vendas_qs)
         .values('produto__nome', 'produto__marca')
         .annotate(total_vendido=Sum('quantidade'), receita=Sum(F('quantidade') * F('preco_unitario')))
-        .order_by('-receita')[:5]
+        .order_by('-receita')[:10]
     )
+
+    por_metodo = (
+        vendas_qs.values('metodo_pagamento')
+        .annotate(total=Sum('valor_total'), count=Sum('valor_total') / Sum('valor_total'))
+        .order_by('-total')
+    )
+
+    # ─── TAB 3: COMPRAS ───────────────────────────────────────
+    c_data_inicio = request.GET.get('c_data_inicio', '')
+    c_data_fim = request.GET.get('c_data_fim', '')
+    c_fornecedor = request.GET.get('c_fornecedor', '')
+
+    compras_qs = Compra.objects.all()
+    if c_data_inicio:
+        compras_qs = compras_qs.filter(data__date__gte=c_data_inicio)
+    if c_data_fim:
+        compras_qs = compras_qs.filter(data__date__lte=c_data_fim)
+    if c_fornecedor:
+        compras_qs = compras_qs.filter(fornecedor__id=c_fornecedor)
+
+    total_compras_filtrado = compras_qs.aggregate(Sum('valor_total'))['valor_total__sum'] or 0
+    num_compras = compras_qs.count()
+
     top_fornecedores = (
-        Compra.objects.filter(**filtro_ano)
-        .values('fornecedor__nome')
-        .annotate(total_gasto=Sum('valor_total'))
-        .order_by('-total_gasto')[:3]
+        compras_qs.values('fornecedor__nome')
+        .annotate(total_gasto=Sum('valor_total'), num_compras=Sum('valor_total') / Sum('valor_total'))
+        .order_by('-total_gasto')[:10]
     )
+
+    produtos_comprados = (
+        ItemCompra.objects.filter(compra__in=compras_qs)
+        .values('produto__nome', 'produto__marca')
+        .annotate(total_qty=Sum('quantidade'), total_custo=Sum(F('quantidade') * F('preco_custo')))
+        .order_by('-total_custo')[:10]
+    )
+
+    # ─── TAB 4: INVENTÁRIO ────────────────────────────────────
+    hoje = timezone.now().date()
+    todos_produtos = Produto.objects.all().order_by('nome')
+    valor_total_stock = sum(float(p.valor_total_stock()) for p in todos_produtos)
+
     ids_vendidos = ItemVenda.objects.values_list('produto_id', flat=True).distinct()
-    produtos_estagnados = Produto.objects.exclude(id__in=ids_vendidos).filter(stock_actual__gt=0)[:5]
+    produtos_estagnados = Produto.objects.exclude(id__in=ids_vendidos).filter(stock_actual__gt=0)
+    valor_estagnado = sum(float(p.valor_total_stock()) for p in produtos_estagnados)
+
+    alertas_validade = ItemCompra.objects.filter(
+        validade__lte=hoje + timedelta(days=60), quantidade__gt=0
+    ).order_by('validade').select_related('produto')
+
+    stock_critico = Produto.objects.filter(stock_actual__lte=F('stock_minimo')).order_by('stock_actual')
 
     return render(request, 'relatorios.html', {
+        'tab': tab,
+        # Financeiro
         'relatorio_final': relatorio_final,
         'total_receitas': total_receitas, 'total_custos': total_custos,
         'total_lucro': total_lucro, 'margem_media': margem_media,
-        'top_produtos': top_produtos, 'top_fornecedores': top_fornecedores,
-        'produtos_estagnados': produtos_estagnados,
         'anos_disponiveis': anos_disponiveis, 'ano_selecionado': ano_selecionado,
+        # Vendas
+        'vendas_lista': vendas_qs.order_by('-data')[:50],
+        'total_vendas_filtrado': total_vendas_filtrado,
+        'num_vendas': num_vendas, 'ticket_medio': ticket_medio,
+        'top_produtos': top_produtos, 'por_metodo': por_metodo,
+        'v_data_inicio': v_data_inicio, 'v_data_fim': v_data_fim, 'v_metodo': v_metodo,
+        # Compras
+        'compras_lista': compras_qs.order_by('-data')[:50],
+        'total_compras_filtrado': total_compras_filtrado,
+        'num_compras': num_compras,
+        'top_fornecedores': top_fornecedores,
+        'produtos_comprados': produtos_comprados,
+        'fornecedores': fornecedores,
+        'c_data_inicio': c_data_inicio, 'c_data_fim': c_data_fim, 'c_fornecedor': c_fornecedor,
+        # Inventário
+        'todos_produtos': todos_produtos,
+        'valor_total_stock': valor_total_stock,
+        'produtos_estagnados': produtos_estagnados,
+        'valor_estagnado': valor_estagnado,
+        'alertas_validade': alertas_validade,
+        'stock_critico': stock_critico,
+        'hoje': hoje,
     })
 
 @login_required

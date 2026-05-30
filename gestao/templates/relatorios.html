@@ -1,32 +1,68 @@
 {% extends 'base.html' %}
-{% block page_title %}Relatórios Mensais{% endblock %}
+{% block page_title %}Relatórios{% endblock %}
 {% block content %}
 
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h1 class="fw-bold mb-0">Relatórios Mensais 📈</h1>
-    <div class="d-flex gap-2 align-items-center">
-        <!-- FILTRO POR ANO -->
-        <form method="GET" class="d-flex gap-2">
-            <select name="ano" class="form-select border-0 bg-light rounded-pill px-3" onchange="this.form.submit()">
-                <option value="">Todos os anos</option>
-                {% for ano in anos_disponiveis %}
-                <option value="{{ ano }}" {% if ano_selecionado == ano|stringformat:"s" %}selected{% endif %}>{{ ano }}</option>
-                {% endfor %}
-            </select>
-        </form>
-        <a href="{% url 'exportar_relatorio_csv' %}" class="btn btn-outline-dark rounded-pill px-4">
-            <i class="bi bi-download me-1"></i> Exportar CSV
+    <h1 class="fw-bold mb-0">Relatórios 📊</h1>
+    <div class="d-flex gap-2">
+        <a href="{% url 'exportar_relatorio_csv' %}" class="btn btn-outline-dark rounded-pill px-3">
+            <i class="bi bi-download me-1"></i> CSV
         </a>
-        <a href="{% url 'exportar_relatorio_pdf' %}" class="btn btn-outline-danger rounded-pill px-4">
+        <a href="{% url 'exportar_relatorio_pdf' %}" class="btn btn-outline-danger rounded-pill px-3">
             <i class="bi bi-file-pdf me-1"></i> PDF
         </a>
-        <a href="{% url 'exportar_relatorio_word' %}" class="btn btn-outline-primary rounded-pill px-4">
+        <a href="{% url 'exportar_relatorio_word' %}" class="btn btn-outline-primary rounded-pill px-3">
             <i class="bi bi-file-word me-1"></i> Word
         </a>
     </div>
 </div>
 
-<!-- CARDS TOTAIS -->
+<!-- TABS -->
+<ul class="nav nav-pills mb-4 gap-2" id="relatorioTabs">
+    <li class="nav-item">
+        <a class="nav-link {% if tab == 'financeiro' %}active{% endif %}"
+           href="?tab=financeiro" style="{% if tab == 'financeiro' %}background:#4b0082;{% endif %}">
+            💰 Financeiro
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if tab == 'vendas' %}active{% endif %}"
+           href="?tab=vendas" style="{% if tab == 'vendas' %}background:#4b0082;{% endif %}">
+            🛍️ Vendas
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if tab == 'compras' %}active{% endif %}"
+           href="?tab=compras" style="{% if tab == 'compras' %}background:#4b0082;{% endif %}">
+            📦 Compras
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if tab == 'inventario' %}active{% endif %}"
+           href="?tab=inventario" style="{% if tab == 'inventario' %}background:#4b0082;{% endif %}">
+            🗃️ Inventário
+        </a>
+    </li>
+</ul>
+
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- TAB 1: FINANCEIRO                                          -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+{% if tab == 'financeiro' %}
+
+<div class="d-flex justify-content-end mb-3">
+    <form method="GET" class="d-flex gap-2 align-items-center">
+        <input type="hidden" name="tab" value="financeiro">
+        <select name="ano" class="form-select border-0 bg-light rounded-pill px-3" onchange="this.form.submit()">
+            <option value="">Todos os anos</option>
+            {% for ano in anos_disponiveis %}
+            <option value="{{ ano }}" {% if ano_selecionado == ano|stringformat:"s" %}selected{% endif %}>{{ ano }}</option>
+            {% endfor %}
+        </select>
+    </form>
+</div>
+
 <div class="row mb-4 g-3">
     <div class="col-md-3">
         <div class="card card-apple p-3 text-center border-start border-success border-4">
@@ -54,8 +90,7 @@
     </div>
 </div>
 
-<!-- TABELA MENSAL -->
-<div class="card card-apple mb-4">
+<div class="card card-apple">
     <table class="table align-middle">
         <thead>
             <tr class="text-muted small">
@@ -96,13 +131,66 @@
     </table>
 </div>
 
-<!-- INTELIGÊNCIA DE NEGÓCIO -->
-<div class="row g-3 mb-4">
+{% endif %}
 
-    <!-- TOP 5 PRODUTOS -->
-    <div class="col-md-6">
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- TAB 2: VENDAS                                              -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+{% if tab == 'vendas' %}
+
+<div class="card card-apple mb-4">
+    <form method="GET" class="row g-3 align-items-end">
+        <input type="hidden" name="tab" value="vendas">
+        <div class="col-md-3">
+            <label class="small fw-bold text-muted text-uppercase">Data Início</label>
+            <input type="date" name="v_data_inicio" value="{{ v_data_inicio }}" class="form-control border-0 bg-light rounded-4">
+        </div>
+        <div class="col-md-3">
+            <label class="small fw-bold text-muted text-uppercase">Data Fim</label>
+            <input type="date" name="v_data_fim" value="{{ v_data_fim }}" class="form-control border-0 bg-light rounded-4">
+        </div>
+        <div class="col-md-3">
+            <label class="small fw-bold text-muted text-uppercase">Método Pagamento</label>
+            <select name="v_metodo" class="form-select border-0 bg-light rounded-4">
+                <option value="">Todos</option>
+                <option value="DIN" {% if v_metodo == 'DIN' %}selected{% endif %}>Dinheiro</option>
+                <option value="TPA" {% if v_metodo == 'TPA' %}selected{% endif %}>TPA</option>
+                <option value="TRANS" {% if v_metodo == 'TRANS' %}selected{% endif %}>Transferência</option>
+            </select>
+        </div>
+        <div class="col-md-3 d-flex gap-2">
+            <button type="submit" class="btn btn-dark rounded-pill px-4 w-100">🔍 Filtrar</button>
+            <a href="?tab=vendas" class="btn btn-outline-secondary rounded-pill px-3">✕</a>
+        </div>
+    </form>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card card-apple p-3 text-center border-start border-success border-4">
+            <small class="text-muted fw-bold">TOTAL VENDIDO</small>
+            <div class="h5 fw-bold text-success">{{ total_vendas_filtrado|floatformat:2 }} Kz</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card card-apple p-3 text-center border-start border-primary border-4">
+            <small class="text-muted fw-bold">Nº DE VENDAS</small>
+            <div class="h5 fw-bold text-primary">{{ num_vendas }}</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card card-apple p-3 text-center border-start border-warning border-4">
+            <small class="text-muted fw-bold">TICKET MÉDIO</small>
+            <div class="h5 fw-bold text-warning">{{ ticket_medio|floatformat:2 }} Kz</div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-7">
         <div class="card card-apple h-100">
-            <h6 class="fw-bold mb-3">🏆 Top 5 Produtos Mais Vendidos</h6>
+            <h6 class="fw-bold mb-3">🏆 Top Produtos Mais Vendidos</h6>
             <table class="table table-sm align-middle">
                 <thead><tr class="text-muted small"><th>PRODUTO</th><th class="text-center">QTD</th><th class="text-end">RECEITA</th></tr></thead>
                 <tbody>
@@ -113,17 +201,109 @@
                         <td class="text-end fw-bold text-success">{{ p.receita|floatformat:2 }} Kz</td>
                     </tr>
                     {% empty %}
-                    <tr><td colspan="3" class="text-muted small text-center">Sem dados.</td></tr>
+                    <tr><td colspan="3" class="text-center text-muted py-3">Sem dados.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
     </div>
+    <div class="col-md-5">
+        <div class="card card-apple h-100">
+            <h6 class="fw-bold mb-3">💳 Por Método de Pagamento</h6>
+            <table class="table table-sm align-middle">
+                <thead><tr class="text-muted small"><th>MÉTODO</th><th class="text-end">TOTAL</th></tr></thead>
+                <tbody>
+                    {% for m in por_metodo %}
+                    <tr>
+                        <td>
+                            {% if m.metodo_pagamento == 'DIN' %}💵 Dinheiro
+                            {% elif m.metodo_pagamento == 'TPA' %}💳 TPA
+                            {% else %}🔄 Transferência{% endif %}
+                        </td>
+                        <td class="text-end fw-bold text-success">{{ m.total|floatformat:2 }} Kz</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="2" class="text-center text-muted py-3">Sem dados.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
 
-    <!-- TOP FORNECEDORES -->
+<div class="card card-apple">
+    <h6 class="fw-bold mb-3">📋 Lista de Vendas (últimas 50)</h6>
+    <table class="table table-hover align-middle">
+        <thead><tr class="text-muted small"><th>ID</th><th>DATA</th><th>MÉTODO</th><th class="text-end">TOTAL</th></tr></thead>
+        <tbody>
+            {% for v in vendas_lista %}
+            <tr>
+                <td class="text-muted">#{{ v.id }}</td>
+                <td>{{ v.data|date:"d/m/Y H:i" }}</td>
+                <td>{{ v.get_metodo_pagamento_display }}</td>
+                <td class="text-end fw-bold text-success">{{ v.valor_total|floatformat:2 }} Kz</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4" class="text-center py-4 text-muted">Nenhuma venda encontrada.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% endif %}
+
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- TAB 3: COMPRAS                                             -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+{% if tab == 'compras' %}
+
+<div class="card card-apple mb-4">
+    <form method="GET" class="row g-3 align-items-end">
+        <input type="hidden" name="tab" value="compras">
+        <div class="col-md-3">
+            <label class="small fw-bold text-muted text-uppercase">Data Início</label>
+            <input type="date" name="c_data_inicio" value="{{ c_data_inicio }}" class="form-control border-0 bg-light rounded-4">
+        </div>
+        <div class="col-md-3">
+            <label class="small fw-bold text-muted text-uppercase">Data Fim</label>
+            <input type="date" name="c_data_fim" value="{{ c_data_fim }}" class="form-control border-0 bg-light rounded-4">
+        </div>
+        <div class="col-md-3">
+            <label class="small fw-bold text-muted text-uppercase">Fornecedor</label>
+            <select name="c_fornecedor" class="form-select border-0 bg-light rounded-4">
+                <option value="">Todos</option>
+                {% for f in fornecedores %}
+                <option value="{{ f.id }}" {% if c_fornecedor == f.id|stringformat:"s" %}selected{% endif %}>{{ f.nome }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3 d-flex gap-2">
+            <button type="submit" class="btn btn-dark rounded-pill px-4 w-100">🔍 Filtrar</button>
+            <a href="?tab=compras" class="btn btn-outline-secondary rounded-pill px-3">✕</a>
+        </div>
+    </form>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-6">
+        <div class="card card-apple p-3 text-center border-start border-danger border-4">
+            <small class="text-muted fw-bold">TOTAL GASTO EM COMPRAS</small>
+            <div class="h5 fw-bold text-danger">{{ total_compras_filtrado|floatformat:2 }} Kz</div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card card-apple p-3 text-center border-start border-primary border-4">
+            <small class="text-muted fw-bold">Nº DE COMPRAS</small>
+            <div class="h5 fw-bold text-primary">{{ num_compras }}</div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
     <div class="col-md-6">
         <div class="card card-apple h-100">
-            <h6 class="fw-bold mb-3">🚚 Top Fornecedores por Valor Gasto</h6>
+            <h6 class="fw-bold mb-3">🚚 Top Fornecedores</h6>
             <table class="table table-sm align-middle">
                 <thead><tr class="text-muted small"><th>FORNECEDOR</th><th class="text-end">TOTAL GASTO</th></tr></thead>
                 <tbody>
@@ -133,7 +313,26 @@
                         <td class="text-end fw-bold text-danger">{{ f.total_gasto|floatformat:2 }} Kz</td>
                     </tr>
                     {% empty %}
-                    <tr><td colspan="2" class="text-muted small text-center">Sem dados.</td></tr>
+                    <tr><td colspan="2" class="text-center text-muted py-3">Sem dados.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card card-apple h-100">
+            <h6 class="fw-bold mb-3">📦 Produtos Mais Comprados</h6>
+            <table class="table table-sm align-middle">
+                <thead><tr class="text-muted small"><th>PRODUTO</th><th class="text-center">QTD</th><th class="text-end">CUSTO</th></tr></thead>
+                <tbody>
+                    {% for p in produtos_comprados %}
+                    <tr>
+                        <td><strong>{{ p.produto__nome }}</strong><br><small class="text-muted">{{ p.produto__marca }}</small></td>
+                        <td class="text-center">{{ p.total_qty }} un.</td>
+                        <td class="text-end fw-bold text-danger">{{ p.total_custo|floatformat:2 }} Kz</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="3" class="text-center text-muted py-3">Sem dados.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
@@ -141,10 +340,107 @@
     </div>
 </div>
 
-<!-- PRODUTOS ESTAGNADOS -->
-{% if produtos_estagnados %}
-<div class="card card-apple" style="border-left: 4px solid #ffae42;">
-    <h6 class="fw-bold mb-3">⚠️ Produtos com Stock mas Nunca Vendidos</h6>
+<div class="card card-apple">
+    <h6 class="fw-bold mb-3">📋 Lista de Compras (últimas 50)</h6>
+    <table class="table table-hover align-middle">
+        <thead><tr class="text-muted small"><th>ID</th><th>DATA</th><th>FORNECEDOR</th><th>PRODUTOS</th><th class="text-end">TOTAL</th></tr></thead>
+        <tbody>
+            {% for c in compras_lista %}
+            <tr>
+                <td class="text-muted">#{{ c.id }}</td>
+                <td>{{ c.data|date:"d/m/Y" }}</td>
+                <td>{{ c.fornecedor.nome|default:"—" }}</td>
+                <td><span class="badge bg-light text-dark border">{{ c.itens.count }} prod.</span></td>
+                <td class="text-end fw-bold text-danger">{{ c.valor_total|floatformat:2 }} Kz</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5" class="text-center py-4 text-muted">Nenhuma compra encontrada.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% endif %}
+
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- TAB 4: INVENTÁRIO                                          -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+{% if tab == 'inventario' %}
+
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card card-apple p-3 text-center border-start border-primary border-4">
+            <small class="text-muted fw-bold">VALOR TOTAL STOCK</small>
+            <div class="h5 fw-bold text-primary">{{ valor_total_stock|floatformat:2 }} Kz</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card card-apple p-3 text-center border-start border-warning border-4">
+            <small class="text-muted fw-bold">CAPITAL ESTAGNADO</small>
+            <div class="h5 fw-bold text-warning">{{ valor_estagnado|floatformat:2 }} Kz</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card card-apple p-3 text-center border-start border-danger border-4">
+            <small class="text-muted fw-bold">STOCK CRÍTICO</small>
+            <div class="h5 fw-bold text-danger">{{ stock_critico.count }} produtos</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card card-apple p-3 text-center border-start border-secondary border-4">
+            <small class="text-muted fw-bold">LOTES A VENCER (60 dias)</small>
+            <div class="h5 fw-bold text-secondary">{{ alertas_validade.count }} lotes</div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-6">
+        <div class="card card-apple h-100">
+            <h6 class="fw-bold mb-3 text-danger">⚡ Stock Crítico (abaixo do mínimo)</h6>
+            <table class="table table-sm align-middle">
+                <thead><tr class="text-muted small"><th>PRODUTO</th><th class="text-center">STOCK</th><th class="text-center">MÍNIMO</th></tr></thead>
+                <tbody>
+                    {% for p in stock_critico %}
+                    <tr>
+                        <td><strong>{{ p.nome }}</strong><br><small class="text-muted">{{ p.marca }}</small></td>
+                        <td class="text-center fw-bold text-danger">{{ p.stock_actual }} un.</td>
+                        <td class="text-center text-muted">{{ p.stock_minimo }} un.</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="3" class="text-center text-muted py-3">Tudo em dia! ✓</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card card-apple h-100">
+            <h6 class="fw-bold mb-3 text-warning">⏳ Validade Próxima (60 dias)</h6>
+            <table class="table table-sm align-middle">
+                <thead><tr class="text-muted small"><th>PRODUTO</th><th class="text-center">QTD</th><th class="text-end">VENCIMENTO</th></tr></thead>
+                <tbody>
+                    {% for l in alertas_validade %}
+                    <tr>
+                        <td><strong>{{ l.produto.nome }}</strong></td>
+                        <td class="text-center">{{ l.quantidade }} un.</td>
+                        <td class="text-end fw-bold {% if l.validade < hoje %}text-danger{% else %}text-warning{% endif %}">
+                            {{ l.validade|date:"d/m/Y" }}
+                            {% if l.validade < hoje %}<span class="badge bg-danger ms-1">VENCIDO</span>{% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="3" class="text-center text-muted py-3">Nenhum lote a vencer em 60 dias.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="card card-apple">
+    <h6 class="fw-bold mb-3">⚠️ Produtos Nunca Vendidos (capital parado)</h6>
     <table class="table table-sm align-middle">
         <thead><tr class="text-muted small"><th>PRODUTO</th><th class="text-center">STOCK</th><th class="text-end">VALOR PARADO</th><th></th></tr></thead>
         <tbody>
@@ -159,10 +455,13 @@
                     </a>
                 </td>
             </tr>
+            {% empty %}
+            <tr><td colspan="4" class="text-center text-muted py-3">Todos os produtos foram vendidos pelo menos uma vez.</td></tr>
             {% endfor %}
         </tbody>
     </table>
 </div>
+
 {% endif %}
 
 {% endblock %}
