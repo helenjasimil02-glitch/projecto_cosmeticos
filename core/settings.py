@@ -49,13 +49,11 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'core.wsgi.application'
 
-import os
-import dj_database_url
-
-# O Railway injeta 'MYSQL_URL'. Verificamos as duas opções por segurança:
+# ==============================================================================
+# CONFIGURAÇÃO DA BASE DE DADOS (LOCAL VS PRODUÇÃO)
+# ==============================================================================
 if os.environ.get('MYSQL_URL') or os.environ.get('DATABASE_URL'):
     # Configuração para Produção (Railway)
-    # Usamos o link direto da variável disponível (dando prioridade à MYSQL_URL)
     url_conexao = os.environ.get('MYSQL_URL') or os.environ.get('DATABASE_URL')
     DATABASES = {
         'default': dj_database_url.config(default=url_conexao, conn_max_age=600)
