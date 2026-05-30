@@ -1,5 +1,6 @@
 import json
 import csv
+from decimal import Decimal
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -198,41 +199,44 @@ def planeamento_compras(request):
 
 @login_required
 def relatorios(request):
-    from django.utils import timezone
-    from django.db.models import Count
-
-    # Filtro por ano
     ano_selecionado = request.GET.get('ano')
     anos_disponiveis = sorted(set(
         list(Venda.objects.dates('data', 'year').values_list('data__year', flat=True)) +
         list(Compra.objects.dates('data', 'year').values_list('data__year', flat=True))
     ), reverse=True)
 
-    # Recolher todos os meses com atividade
     filtro_ano = {'data__year': ano_selecionado} if ano_selecionado else {}
-    filtro_ano_date = {'data__year': ano_selecionado} if ano_selecionado else {}
 
-    meses_vendas = set(Venda.objects.filter(**filtro_ano).dates('data', 'month'))
-    meses_despesas = set(Despesa.objects.filter(**filtro_ano_date).dates('data', 'month'))
-    meses_compras = set(Compra.objects.filter(**filtro_ano).dates('data', 'month'))
-    meses_extras = set(ReceitaExtra.objects.filter(**filtro_ano_date).dates('data', 'month'))
-    todos_meses = sorted(meses_vendas | meses_despesas | meses_compras | meses_extras, reverse=True)
+    # Uma query por modelo em vez de N queries dentro do loop
+    from django.db.models import Sum
+    from collections import defaultdict
+
+    def agrupar_por_mes(qs, campo_data, campo_valor):
+        resultado = defaultdict(Decimal)
+        for item in qs.values(campo_data + '__year', campo_data + '__month').annotate(total=Sum(campo_valor)):
+            chave = (item[campo_data + '__year'], item[campo_data + '__month'])
+            resultado[chave] += item['total'] or Decimal('0')
+        return resultado
+
+    vendas_map = agrupar_por_mes(Venda.objects.filter(**filtro_ano), 'data', 'valor_total')
+    extras_map = agrupar_por_mes(ReceitaExtra.objects.filter(**filtro_ano), 'data', 'valor')
+    despesas_map = agrupar_por_mes(Despesa.objects.filter(**filtro_ano), 'data', 'valor')
+    compras_map = agrupar_por_mes(Compra.objects.filter(**filtro_ano), 'data', 'valor_total')
+
+    todos_meses = sorted(set(vendas_map) | set(extras_map) | set(despesas_map) | set(compras_map), reverse=True)
 
     relatorio_final = []
-    for d_mes in todos_meses:
-        v = float(Venda.objects.filter(data__month=d_mes.month, data__year=d_mes.year).aggregate(Sum('valor_total'))['valor_total__sum'] or 0)
-        e = float(ReceitaExtra.objects.filter(data__month=d_mes.month, data__year=d_mes.year).aggregate(Sum('valor'))['valor__sum'] or 0)
-        d = float(Despesa.objects.filter(data__month=d_mes.month, data__year=d_mes.year).aggregate(Sum('valor'))['valor__sum'] or 0)
-        c = float(Compra.objects.filter(data__month=d_mes.month, data__year=d_mes.year).aggregate(Sum('valor_total'))['valor_total__sum'] or 0)
-
-        receitas = v + e
-        custos = d + c
+    for ano, mes in todos_meses:
+        chave = (ano, mes)
+        receitas = float(vendas_map[chave] + extras_map[chave])
+        custos = float(despesas_map[chave] + compras_map[chave])
         lucro = receitas - custos
         margem = (lucro / receitas * 100) if receitas > 0 else 0
-
+        from datetime import date
         relatorio_final.append({
-            'mes': d_mes, 'vendas': receitas,
-            'saidas': custos, 'lucro': lucro, 'margem': margem,
+            'mes': date(ano, mes, 1),
+            'vendas': receitas, 'saidas': custos,
+            'lucro': lucro, 'margem': margem,
         })
 
     total_receitas = sum(r['vendas'] for r in relatorio_final)
@@ -240,43 +244,29 @@ def relatorios(request):
     total_lucro = total_receitas - total_custos
     margem_media = (total_lucro / total_receitas * 100) if total_receitas > 0 else 0
 
-    # TOP 5 PRODUTOS MAIS VENDIDOS
-    from django.db.models import Sum as DSum
     top_produtos = (
         ItemVenda.objects
         .filter(**({'venda__data__year': ano_selecionado} if ano_selecionado else {}))
         .values('produto__nome', 'produto__marca')
-        .annotate(
-            total_vendido=DSum('quantidade'),
-            receita=DSum(F('quantidade') * F('preco_unitario'))
-        )
+        .annotate(total_vendido=Sum('quantidade'), receita=Sum(F('quantidade') * F('preco_unitario')))
         .order_by('-receita')[:5]
     )
-
-    # TOP 3 FORNECEDORES
     top_fornecedores = (
-        Compra.objects
-        .filter(**filtro_ano)
+        Compra.objects.filter(**filtro_ano)
         .values('fornecedor__nome')
-        .annotate(total_gasto=DSum('valor_total'))
+        .annotate(total_gasto=Sum('valor_total'))
         .order_by('-total_gasto')[:3]
     )
-
-    # PRODUTOS ESTAGNADOS (sem vendas)
     ids_vendidos = ItemVenda.objects.values_list('produto_id', flat=True).distinct()
     produtos_estagnados = Produto.objects.exclude(id__in=ids_vendidos).filter(stock_actual__gt=0)[:5]
 
     return render(request, 'relatorios.html', {
         'relatorio_final': relatorio_final,
-        'total_receitas': total_receitas,
-        'total_custos': total_custos,
-        'total_lucro': total_lucro,
-        'margem_media': margem_media,
-        'top_produtos': top_produtos,
-        'top_fornecedores': top_fornecedores,
+        'total_receitas': total_receitas, 'total_custos': total_custos,
+        'total_lucro': total_lucro, 'margem_media': margem_media,
+        'top_produtos': top_produtos, 'top_fornecedores': top_fornecedores,
         'produtos_estagnados': produtos_estagnados,
-        'anos_disponiveis': anos_disponiveis,
-        'ano_selecionado': ano_selecionado,
+        'anos_disponiveis': anos_disponiveis, 'ano_selecionado': ano_selecionado,
     })
 
 @login_required
@@ -538,26 +528,37 @@ def add_compra(request):
 def ajuste_stock(request):
     if not request.user.is_superuser:
         return redirect('planeamento_compras')
-
     if request.method == "POST":
         produto_id = request.POST.get('produto_id')
-        tipo       = request.POST.get('tipo')
+        tipo = request.POST.get('tipo')
         quantidade = int(request.POST.get('quantidade', 0))
-
         try:
-            produto = Produto.objects.get(id=produto_id)
-            if tipo == 'remover':
-                if quantidade > produto.stock_actual:
-                    messages.error(request, f"Quantidade superior ao stock actual ({produto.stock_actual} un.).")
-                    return redirect('planeamento_compras')
-                produto.stock_actual -= quantidade
-            else:
-                produto.stock_actual += quantidade
-            produto.save()
-            messages.success(request, f"Stock de '{produto.nome}' ajustado com sucesso.")
+            with transaction.atomic():
+                produto = Produto.objects.get(id=produto_id)
+                if tipo == 'remover':
+                    if quantidade > produto.stock_actual:
+                        messages.error(request, f"Quantidade superior ao stock actual ({produto.stock_actual} un.).")
+                        return redirect('planeamento_compras')
+                    # Actualizar também os lotes FEFO
+                    quantidade_a_baixar = quantidade
+                    lotes = ItemCompra.objects.filter(produto=produto, quantidade__gt=0).order_by('validade')
+                    for lote in lotes:
+                        if quantidade_a_baixar <= 0:
+                            break
+                        if lote.quantidade >= quantidade_a_baixar:
+                            lote.quantidade -= quantidade_a_baixar
+                            quantidade_a_baixar = 0
+                        else:
+                            quantidade_a_baixar -= lote.quantidade
+                            lote.quantidade = 0
+                        lote.save()
+                    produto.stock_actual -= quantidade
+                else:
+                    produto.stock_actual += quantidade
+                produto.save(skip_clean=True)
+                messages.success(request, f"Stock de '{produto.nome}' ajustado com sucesso.")
         except Exception:
             messages.error(request, "Erro ao ajustar stock. Tenta novamente.")
-
     return redirect('planeamento_compras')
 
 @login_required

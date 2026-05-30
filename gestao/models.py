@@ -72,7 +72,7 @@ class Produto(models.Model):
 class Compra(models.Model):
     data = models.DateTimeField(auto_now_add=True)
     fornecedor = models.ForeignKey(Fornecedor, on_delete=models.SET_NULL, null=True)
-    valor_total = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    valor_total = models.DecimalField(max_digits=18, decimal_places=2, default=0)
     def __str__(self):
         data_fmt = self.data.strftime('%d/%m/%Y') if self.data else ''
         return f"Compra #{self.id} — {self.fornecedor} ({data_fmt})"
