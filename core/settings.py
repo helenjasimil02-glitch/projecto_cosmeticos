@@ -52,14 +52,18 @@ WSGI_APPLICATION = 'core.wsgi.application'
 # ==============================================================================
 # CONFIGURAÇÃO DA BASE DE DADOS (LOCAL VS PRODUÇÃO)
 # ==============================================================================
-if os.environ.get('MYSQL_URL') or os.environ.get('DATABASE_URL'):
-    # Configuração para Produção (Railway)
-    url_conexao = os.environ.get('MYSQL_URL') or os.environ.get('DATABASE_URL')
+if os.environ.get('DB_HOST'):
     DATABASES = {
-        'default': dj_database_url.config(default=url_conexao, conn_max_age=600)
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': os.environ.get('DB_NAME', 'railway'),
+            'USER': os.environ.get('DB_USER', 'root'),
+            'PASSWORD': os.environ.get('DB_PASSWORD', ''),
+            'HOST': os.environ.get('DB_HOST', '127.0.0.1'),
+            'PORT': os.environ.get('DB_PORT', '3306'),
+        }
     }
 else:
-    # Configuração Local (O teu computador)
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.mysql',
@@ -70,7 +74,7 @@ else:
             'PORT': '3306',
         }
     }
-
+    
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
     {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
