@@ -52,29 +52,17 @@ WSGI_APPLICATION = 'core.wsgi.application'
 # ==============================================================================
 # CONFIGURAÇÃO DA BASE DE DADOS (LOCAL VS PRODUÇÃO)
 # ==============================================================================
-if os.environ.get('DB_HOST'):
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.mysql',
-            'NAME': os.environ.get('DB_NAME', 'railway'),
-            'USER': os.environ.get('DB_USER', 'root'),
-            'PASSWORD': os.environ.get('DB_PASSWORD', ''),
-            'HOST': os.environ.get('DB_HOST', '127.0.0.1'),
-            'PORT': os.environ.get('DB_PORT', '3306'),
-        }
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'railway',
+        'USER': 'root',
+        'PASSWORD': 'EcxavfJzUlNFplwSOgvBQGDgAeMSaDKb',
+        'HOST': 'switchback.proxy.rlwy.net',
+        'PORT': '39651',
     }
-else:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.mysql',
-            'NAME': 'bd_cosmeticos',
-            'USER': 'root',
-            'PASSWORD': 'Root719!',
-            'HOST': '127.0.0.1',
-            'PORT': '3306',
-        }
-    }
-    
+}
+
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
     {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
